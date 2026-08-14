@@ -116,6 +116,11 @@ fn divider_estimate() -> u64 {
     PIT_FREQ_HZ / 100 // matches TARGET_HZ = 100 in interrupts::init_pit()
 }
 
+/// Get calibrated TSC frequency in Hertz.
+pub fn get_tsc_hz() -> u64 {
+    TSC_HZ.load(Ordering::Relaxed).max(1_000_000_000)
+}
+
 /// Milliseconds elapsed since `calibrate()` was called.
 pub fn now_ms() -> u32 {
     let hz = TSC_HZ.load(Ordering::Relaxed).max(1);
