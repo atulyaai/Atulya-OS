@@ -89,17 +89,24 @@ impl MouseState {
     }
 
     pub fn handle_byte(&mut self, b: u8, w: usize, h: usize) -> bool {
-        self.bytes[self.cycle as usize] = b;
-        self.cycle += 1;
-
-        if self.cycle == 3 {
+        if self.cycle == 0 {
+            // Byte 0 of standard PS/2 packet must always have bit 3 (0x08) set.
+            // If clear, this is an out-of-sync byte or stray ACK -> discard and wait for valid header.
+            if b & 0x08 == 0 {
+                return false;
+            }
+            self.bytes[0] = b;
+            self.cycle = 1;
+            return false;
+        } else if self.cycle == 1 {
+            self.bytes[1] = b;
+            self.cycle = 2;
+            return false;
+        } else {
+            self.bytes[2] = b;
             self.cycle = 0;
 
             let flags = self.bytes[0];
-            if flags & 0x08 == 0 {
-                return false;
-            }
-
             let x_sign = flags & 0x10 != 0;
             let y_sign = flags & 0x20 != 0;
 
@@ -113,6 +120,11 @@ impl MouseState {
                 dy -= 256;
             }
 
+            // Discard invalid overflow packets
+            if flags & 0xC0 != 0 {
+                return false;
+            }
+
             self.buttons = flags & 0x07;
 
             self.x = (self.x + dx).max(0).min(w as isize - 1);
@@ -120,7 +132,6 @@ impl MouseState {
 
             return true;
         }
-        false
     }
 }
 
