@@ -119,22 +119,8 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     let mut login_gate = login::LoginGate::new();
     login_gate.run(&mut display);
 
-    let desktop_entry: extern "C" fn() = desktop_entry;
-    let desktop_proc = process::Process::new_kernel_thread("desktop_gui", desktop_entry, 0);
-    scheduler::add_process(desktop_proc);
-    serial::serial_write_line("Desktop process created.");
-
-    loop {
-        unsafe { core::arch::asm!("hlt"); }
-    }
-}
-
-extern "C" fn desktop_entry() {
-    let mut display = unsafe {
-        let buffer = core::slice::from_raw_parts_mut(FB_BUFFER_PTR, FB_BUFFER_LEN);
-        let backbuffer = &mut BACKBUFFER[..FB_BUFFER_LEN];
-        display::Display { buffer, backbuffer, info: FB_INFO }
-    };
+    // ── Quantum Glass Window Manager & AI Intent Desktop ────────────────
+    serial::serial_write_line("Launching Atulya Desktop...");
     crate::desktop::run(&mut display);
 }
 
