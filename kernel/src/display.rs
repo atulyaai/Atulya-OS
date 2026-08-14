@@ -600,4 +600,44 @@ impl<'a> Display<'a> {
             }
         }
     }
+
+    /// Alpha-blend a pixel onto the backbuffer (alpha 0..255).
+    pub fn pixel_alpha(&mut self, x: usize, y: usize, color: Rgb, alpha: u8) {
+        if x >= self.info.width || y >= self.info.height || alpha == 0 {
+            return;
+        }
+        if alpha == 255 {
+            self.pixel(x, y, color);
+            return;
+        }
+        let cur = self.read_pixel(x, y);
+        let blended = cur.lerp(color, (alpha as u16) * 256 / 255);
+        self.pixel(x, y, blended);
+    }
+
+    /// Blit RGBA sprite data with per-pixel alpha channel.
+    pub fn blit_rgba_sprite(&mut self, x: usize, y: usize, w: usize, h: usize, data: &[u8]) {
+        for row in 0..h {
+            let py = y + row;
+            if py >= self.info.height {
+                break;
+            }
+            for col in 0..w {
+                let px = x + col;
+                if px >= self.info.width {
+                    break;
+                }
+                let offset = (row * w + col) * 4;
+                if offset + 3 < data.len() {
+                    let r = data[offset];
+                    let g = data[offset + 1];
+                    let b = data[offset + 2];
+                    let a = data[offset + 3];
+                    if a > 0 {
+                        self.pixel_alpha(px, py, Rgb::new(r, g, b), a);
+                    }
+                }
+            }
+        }
+    }
 }

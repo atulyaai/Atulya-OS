@@ -1,6 +1,8 @@
 use crate::display::{Display, Rgb};
 use crate::fs::{RamFs, FileSystem, OpenFlags};
 
+static DOCK_ICONS: &[u8; 9 * 32 * 32 * 4] = include_bytes!("../../assets/icons/dock_icons.rgba");
+
 // ── Keyboard I/O Ports ─────────────────────────────────────────────
 unsafe fn inb(port: u16) -> u8 {
     let value: u8;
@@ -814,8 +816,8 @@ pub fn run(display: &mut Display) -> ! {
         // ── 2. Top-Center AI Greeting & Waveform ─────────────────────────────
         let tick = crate::interrupts::tick_counter::get();
         let cx = w / 2;
-        crate::font::centered_text(display, cx, 28, "GOOD EVENING, ATUL", 1, Rgb::new(180, 230, 255));
-        crate::font::centered_text(display, cx, 48, "ATULYA IS READY.", 2, theme.accent);
+        crate::font::centered_text_aa(display, cx, 28, "GOOD EVENING, ATUL", Rgb::new(180, 230, 255));
+        crate::font::centered_text_aa(display, cx, 48, "ATULYA INTENT OS IS READY", theme.accent);
 
         // Consolidated Float Harmonic Audio Waveform
         let effects = crate::gpu::effects::EffectRenderer::new();
@@ -902,18 +904,19 @@ pub fn run(display: &mut Display) -> ! {
         display.rect_rounded_alpha(dock_x, dock_y, dock_total_w, 52, 10, Rgb::new(3, 10, 22), 220);
         display.rect_rounded_outline(dock_x, dock_y, dock_total_w, 52, 10, theme.accent.dim(120));
 
-        for (i, (name, icon)) in dock_apps.iter().enumerate() {
+        for (i, (_name, _icon)) in dock_apps.iter().enumerate() {
             let ix = dock_x + 12 + i * (icon_w + 12);
             let iy = dock_y + 5;
             let is_hovered = (mouse.x as usize >= ix && mouse.x as usize <= ix + icon_w)
                 && (mouse.y as usize >= iy && mouse.y as usize <= iy + icon_h);
 
-            let bg_alpha = if is_hovered { 230 } else { 160 };
+            let bg_alpha = if is_hovered { 230 } else { 140 };
             display.rect_rounded_alpha(ix, iy, icon_w, icon_h, 6, Rgb::new(6, 24, 48), bg_alpha);
-            display.rect_rounded_outline(ix, iy, icon_w, icon_h, 6, if is_hovered { theme.accent } else { theme.accent.dim(120) });
+            display.rect_rounded_outline(ix, iy, icon_w, icon_h, 6, if is_hovered { theme.accent } else { theme.accent.dim(100) });
 
-            crate::font::centered_text(display, ix + icon_w / 2, iy + 8, icon, 1, theme.accent);
-            crate::font::centered_text(display, ix + icon_w / 2, iy + 24, name, 1, Rgb::new(180, 220, 255));
+            // Blit high-res 32x32 RGBA icon
+            let icon_slice = &DOCK_ICONS[i * (32 * 32 * 4)..(i + 1) * (32 * 32 * 4)];
+            display.blit_rgba_sprite(ix + (icon_w - 32) / 2, iy + 4, 32, 32, icon_slice);
         }
 
         // Draw taskbar clock

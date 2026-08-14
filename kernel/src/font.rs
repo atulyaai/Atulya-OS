@@ -181,3 +181,56 @@ pub fn centered_text_alpha(
     let x = cx.saturating_sub(w / 2);
     draw_text_alpha(display, x, y, text, scale, color, alpha);
 }
+
+// ── Anti-Aliased 16px Subpixel Vector Font Atlas (9x16 per glyph, ASCII 32..126) ──
+static FONT_16_ALPHA: &[u8; 95 * 9 * 16] = include_bytes!("../../assets/fonts/font_16_alpha.bin");
+
+pub const AA_CHAR_WIDTH: usize = 9;
+pub const AA_CHAR_HEIGHT: usize = 16;
+
+/// Calculate width in pixels of anti-aliased text string.
+pub fn text_width_aa(text: &str) -> usize {
+    text.len() * AA_CHAR_WIDTH
+}
+
+/// Draw anti-aliased 16px glyph at `(x, y)` with subpixel alpha coverage.
+pub fn draw_char_aa(display: &mut Display, x: usize, y: usize, byte: u8, color: Rgb) {
+    if byte < 32 || byte > 126 {
+        return;
+    }
+    let glyph_idx = (byte - 32) as usize;
+    let base = glyph_idx * (AA_CHAR_WIDTH * AA_CHAR_HEIGHT);
+
+    for row in 0..AA_CHAR_HEIGHT {
+        let py = y + row;
+        if py >= display.height() {
+            break;
+        }
+        for col in 0..AA_CHAR_WIDTH {
+            let px = x + col;
+            if px >= display.width() {
+                break;
+            }
+            let alpha = FONT_16_ALPHA[base + row * AA_CHAR_WIDTH + col];
+            if alpha > 0 {
+                display.pixel_alpha(px, py, color, alpha);
+            }
+        }
+    }
+}
+
+/// Draw anti-aliased 16px text string at `(x, y)`.
+pub fn draw_text_aa(display: &mut Display, x: usize, y: usize, text: &str, color: Rgb) {
+    let mut cur_x = x;
+    for &b in text.as_bytes() {
+        draw_char_aa(display, cur_x, y, b, color);
+        cur_x += AA_CHAR_WIDTH;
+    }
+}
+
+/// Draw anti-aliased 16px text centered horizontally at `cx`.
+pub fn centered_text_aa(display: &mut Display, cx: usize, y: usize, text: &str, color: Rgb) {
+    let w = text_width_aa(text);
+    let x = cx.saturating_sub(w / 2);
+    draw_text_aa(display, x, y, text, color);
+}
