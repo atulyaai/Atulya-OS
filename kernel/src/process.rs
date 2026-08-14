@@ -59,6 +59,29 @@ impl Context {
             rsp: rsp - 24, // point at RIP (start of 3-value frame)
         }
     }
+
+    pub fn new_user_thread(entry: usize, user_stack_top: usize, kernel_stack_base: *mut u8, kernel_stack_size: usize) -> Self {
+        let rsp = (kernel_stack_base as usize + kernel_stack_size) as u64;
+        unsafe {
+            let frame_top = (kernel_stack_base as usize + kernel_stack_size) as *mut u64;
+            // Build a 5-value frame matching CPU Ring 0 -> Ring 3 interrupt format:
+            // [SS, RSP, RFLAGS, CS, RIP]
+            core::ptr::write(frame_top.sub(5), entry as u64);          // RIP
+            core::ptr::write(frame_top.sub(4), (0x20 | 3) as u64);     // CS (User Code Selector 0x23)
+            core::ptr::write(frame_top.sub(3), 0x202u64);              // RFLAGS (IF=1 + bit1)
+            core::ptr::write(frame_top.sub(2), user_stack_top as u64);  // RSP (User Stack Top)
+            core::ptr::write(frame_top.sub(1), (0x18 | 3) as u64);     // SS (User Data Selector 0x1B)
+        }
+
+        Context {
+            rflags: 0x202,
+            rax: 0, rbx: 0, rcx: 0, rdx: 0,
+            rsi: 0, rdi: 0, rbp: 0,
+            r8: 0, r9: 0, r10: 0, r11: 0,
+            r12: 0, r13: 0, r14: 0, r15: 0,
+            rsp: rsp - 40, // point at RIP (start of 5-value iretq frame)
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -135,6 +158,34 @@ impl Process {
         }
     }
 
+    /// Create an isolated Ring 3 User-Mode process thread with its own user stack.
+    pub fn new_user_thread(name: &'static str, entry: usize, priority: u8) -> Self {
+        let pid = NEXT_PID.fetch_add(1, Ordering::Relaxed);
+        let layout = core::alloc::Layout::from_size_align(STACK_SIZE, 16).unwrap();
+        
+        // Allocate Kernel Stack (used for interrupts and syscall handling)
+        let kernel_stack_base = unsafe { alloc::alloc::alloc(layout) };
+        // Allocate User Stack (used when executing in Ring 3)
+        let user_stack_base = unsafe { alloc::alloc::alloc(layout) };
+
+        if kernel_stack_base.is_null() || user_stack_base.is_null() {
+            panic!("Failed to allocate user process stacks");
+        }
+
+        let user_stack_top = user_stack_base as usize + STACK_SIZE;
+        let ctx = Context::new_user_thread(entry, user_stack_top, kernel_stack_base, STACK_SIZE);
+
+        Process {
+            pid,
+            name,
+            state: ProcessState::Ready,
+            priority,
+            ctx,
+            stack_base: kernel_stack_base,
+            stack_size: STACK_SIZE,
+        }
+    }
+
     pub fn name(&self) -> &'static str {
         self.name
     }
@@ -201,5 +252,37 @@ pub unsafe extern "C" fn restore_context(ctx: *const Context) {
         "add rsp, 24",
         "sti",
         "jmp r10",
+    );
+}
+
+/// Transition CPU directly from Ring 0 to Ring 3 User Mode using `iretq`.
+pub unsafe fn enter_user_mode(entry_point: usize, user_stack_top: usize) -> ! {
+    let user_data = 0x18 | 3; // User Data Selector 0x1B
+    let user_code = 0x20 | 3; // User Code Selector 0x23
+    let rflags = 0x202u64;    // IF=1 (Enable interrupts in user mode)
+
+    core::arch::asm!(
+        // Push 5-value 64-bit iretq stack frame:
+        // [SS, RSP, RFLAGS, CS, RIP]
+        "push {ss}",
+        "push {rsp}",
+        "push {rflags}",
+        "push {cs}",
+        "push {rip}",
+
+        // Set user data segment registers
+        "mov ax, {ds:x}",
+        "mov ds, ax",
+        "mov es, ax",
+
+        // Execute privilege drop to Ring 3
+        "iretq",
+        ss = in(reg) user_data as u64,
+        rsp = in(reg) user_stack_top as u64,
+        rflags = in(reg) rflags,
+        cs = in(reg) user_code as u64,
+        rip = in(reg) entry_point as u64,
+        ds = in(reg) user_data,
+        options(noreturn),
     );
 }
