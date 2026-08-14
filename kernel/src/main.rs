@@ -25,6 +25,7 @@ mod gpu;
 mod login;
 mod sound;
 mod pci;
+mod gdt;
 
 use bootloader_api::{config::Mapping, entry_point, BootInfo, BootloaderConfig};
 use core::panic::PanicInfo;
@@ -79,6 +80,11 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     let heap_virt = heap_phys_start + PHYS_MEM_OFFSET;
     allocator::init(heap_virt as usize, heap_size as usize);
     serial::serial_write_line("Heap initialized");
+
+    gdt::init();
+    serial::serial_write_line("GDT initialized.");
+
+    let _ = fs::ata::DISK.lock().init();
 
     serial::serial_write_line("About to init interrupts...");
     interrupts::init();

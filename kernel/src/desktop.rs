@@ -405,9 +405,19 @@ impl Terminal {
 
         if cmd_str == "help" {
             self.write_line("Commands: ls, cat, mkdir, rm, echo, pwd, cd,");
-            self.write_line("          pci, ifconfig, ping, ps, wasm,");
+            self.write_line("          pci, ifconfig, ping, ps, wasm, disk,");
             self.write_line("          sound, skills, net, neofetch,");
             self.write_line("          clear, theme, joke, scan, matrix");
+        } else if cmd_str == "disk" {
+            self.write_line("── ATA / IDE Persistent Block Device ──");
+            let disk = crate::fs::ata::DISK.lock();
+            if disk.is_available {
+                self.write_line("  Status: Primary Master IDE [ONLINE]");
+                self.write_line("  LBA Addressing: 28-bit / 48-bit Mode Active");
+                self.write_line("  Sector Size: 512 bytes | Persistent Storage: Ready");
+            } else {
+                self.write_line("  Status: Virtual RAM Disk Emulation Active");
+            }
         } else if cmd_str == "pci" {
             self.write_line("── Discovered PCI Hardware Devices ──");
             let devices = crate::pci::PciBus::scan();

@@ -21,6 +21,8 @@ const GREEN: Rgb = Rgb::new(0, 230, 118);
 const RED: Rgb = Rgb::new(255, 60, 60);
 const DARK_BG: Rgb = Rgb::new(4, 10, 24);
 
+static LOGIN_PLATE: &[u8; 400 * 225 * 3] = include_bytes!("../../assets/boot/login_plate.rgb");
+
 pub struct LoginGate {
     passcode: [u8; 16],
     pass_len: usize,
@@ -172,11 +174,23 @@ impl LoginGate {
         // Background dark obsidian space
         display.gradient_rect_v(0, 0, w, h, Rgb::new(1, 2, 4), Rgb::new(3, 4, 8));
 
-        // Background subtle grid lines
-        let grid_col = Rgb::new(0, 100, 160).dim(25);
-        for x in (0..w).step_by(48) {
-            for y in (0..h).step_by(8) {
-                display.pixel(x, y, grid_col);
+        // Blit pre-rendered CGI central login backdrop plate
+        let plate_w = 400;
+        let plate_h = 225;
+        let px = cx.saturating_sub(plate_w / 2);
+        let py = h * 34 / 100;
+        for y in 0..plate_h {
+            let dy = py + y;
+            if dy >= h { break; }
+            let row_off = y * plate_w * 3;
+            for x in 0..plate_w {
+                let dx = px + x;
+                if dx >= w { break; }
+                let poff = row_off + x * 3;
+                let r = LOGIN_PLATE[poff];
+                let g = LOGIN_PLATE[poff + 1];
+                let b = LOGIN_PLATE[poff + 2];
+                display.pixel(dx, dy, Rgb::new(r, g, b));
             }
         }
 
