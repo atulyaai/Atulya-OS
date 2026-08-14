@@ -23,6 +23,9 @@ pub struct IntentEngine {
 pub enum IntentAction {
     ExecuteCommand(&'static str),
     RunWasmSkill(&'static str),
+    SearchFiles(String),
+    FindLargeFiles,
+    ViewDocument(String),
     SyncDisk,
     ChangeTheme,
     PlayChime,
@@ -62,7 +65,37 @@ impl IntentEngine {
         self.query_history.push(String::from(prompt_trimmed));
         let lower = prompt_trimmed.to_ascii_lowercase();
 
-        if lower.contains("scan") || lower.contains("network") || lower.contains("wifi") || lower.contains("pci") {
+        if (lower.contains("find") || lower.contains("search") || lower.contains("where")) && (lower.contains("large") || lower.contains("big") || lower.contains("size")) {
+            IntentResult {
+                intent_name: "VFS_LARGE_FILE_ANALYSIS",
+                description: String::from("Scanning ATA persistent VFS and indexing top files by byte size..."),
+                action: IntentAction::FindLargeFiles,
+                confidence: 97,
+            }
+        } else if lower.contains("find") || lower.contains("search") || lower.contains("where is") {
+            let keyword = if let Some(idx) = lower.find("find ") {
+                &prompt_trimmed[idx + 5..]
+            } else if let Some(idx) = lower.find("search ") {
+                &prompt_trimmed[idx + 7..]
+            } else {
+                prompt_trimmed
+            }.trim();
+
+            IntentResult {
+                intent_name: "NATURAL_LANGUAGE_FILE_SEARCH",
+                description: format!("Searching VFS directory trees for keyword '{}'...", keyword),
+                action: IntentAction::SearchFiles(String::from(keyword)),
+                confidence: 96,
+            }
+        } else if lower.starts_with("open ") || lower.starts_with("view ") || lower.starts_with("read ") {
+            let target = prompt_trimmed[5..].trim();
+            IntentResult {
+                intent_name: "UNIVERSAL_VIEWER_DISPATCH",
+                description: format!("Format-sniffing and opening document '{}' in Universal Viewer...", target),
+                action: IntentAction::ViewDocument(String::from(target)),
+                confidence: 98,
+            }
+        } else if lower.contains("scan") || lower.contains("network") || lower.contains("wifi") || lower.contains("pci") {
             IntentResult {
                 intent_name: "NETWORK_HARDWARE_SCAN",
                 description: String::from("Scanning PCI bus and probing VirtIO-Net adapters..."),

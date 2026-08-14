@@ -434,6 +434,99 @@ impl Terminal {
                     let _ = self.fs.sync_to_disk();
                     self.write_line("  [OK] System state synchronized to ATA hard disk.");
                 }
+                crate::ai::IntentAction::SearchFiles(ref keyword) => {
+                    self.write_line("── Natural Language VFS Search Results ──");
+                    let mut found = 0;
+                    let subdirs = ["/", "/etc", "/home/guest", "/user/atul", "/system", "/apps", "/docs", "/media"];
+                    for dir in &subdirs {
+                        if let Ok(entries) = self.fs.ls(dir) {
+                            for entry in entries {
+                                if entry.name.contains(keyword.as_str()) || keyword.contains(&entry.name) {
+                                    let full_path = if *dir == "/" {
+                                        alloc::format!("/{}", entry.name)
+                                    } else {
+                                        alloc::format!("{}/{}", dir, entry.name)
+                                    };
+                                    self.write_str("  📄 ");
+                                    self.write_str(&full_path);
+                                    self.write_str(" (");
+                                    let mut sbuf = [0u8; 8];
+                                    let mut sval = entry.size as u32;
+                                    let mut sidx = 8;
+                                    if sval == 0 { sbuf[7] = b'0'; sidx = 7; }
+                                    while sval > 0 && sidx > 0 {
+                                        sidx -= 1;
+                                        sbuf[sidx] = b'0' + (sval % 10) as u8;
+                                        sval /= 10;
+                                    }
+                                    self.write_str(core::str::from_utf8(&sbuf[sidx..]).unwrap_or("0"));
+                                    self.write_line(" bytes)");
+                                    found += 1;
+                                }
+                            }
+                        }
+                    }
+                    if found == 0 {
+                        self.write_str("  No files matching '");
+                        self.write_str(keyword);
+                        self.write_line("' found on ATA disk.");
+                    }
+                }
+                crate::ai::IntentAction::FindLargeFiles => {
+                    self.write_line("── Top Indexed Files Across ATA VFS ──");
+                    let subdirs = ["/system", "/apps", "/docs", "/media", "/user/atul", "/etc"];
+                    for dir in &subdirs {
+                        if let Ok(entries) = self.fs.ls(dir) {
+                            for entry in entries {
+                                if !entry.is_dir && entry.size > 0 {
+                                    let full_path = alloc::format!("{}/{}", dir, entry.name);
+                                    self.write_str("  💾 ");
+                                    self.write_str(&full_path);
+                                    self.write_str(" ── ");
+                                    let mut sbuf = [0u8; 8];
+                                    let mut sval = entry.size as u32;
+                                    let mut sidx = 8;
+                                    if sval == 0 { sbuf[7] = b'0'; sidx = 7; }
+                                    while sval > 0 && sidx > 0 {
+                                        sidx -= 1;
+                                        sbuf[sidx] = b'0' + (sval % 10) as u8;
+                                        sval /= 10;
+                                    }
+                                    self.write_str(core::str::from_utf8(&sbuf[sidx..]).unwrap_or("0"));
+                                    self.write_line(" bytes");
+                                }
+                            }
+                        }
+                    }
+                }
+                crate::ai::IntentAction::ViewDocument(ref target) => {
+                    let resolved = self.resolve_path(target);
+                    if let Ok(handle) = self.fs.open(&resolved, OpenFlags::Read) {
+                        let mut buf = alloc::vec![0u8; 8192];
+                        let mut total = 0;
+                        while total < buf.len() {
+                            match self.fs.read(handle, &mut buf[total..]) {
+                                Ok(0) => break,
+                                Ok(n) => total += n,
+                                Err(_) => break,
+                            }
+                        }
+                        let _ = self.fs.close(handle);
+                        let decoded = crate::viewer::sniff_and_decode(&resolved, &buf[..total]);
+                        self.write_str(decoded.format.icon());
+                        self.write_str(" [");
+                        self.write_str(decoded.format.name());
+                        self.write_line("]");
+                        self.write_str("  ");
+                        self.write_line(&decoded.header_summary);
+                        for line in &decoded.preview_lines {
+                            self.write_line(line);
+                        }
+                    } else {
+                        self.write_str("  File not found: ");
+                        self.write_line(&resolved);
+                    }
+                }
                 crate::ai::IntentAction::ChangeTheme => {
                     *theme_idx = (*theme_idx + 1) % 4;
                     self.write_line("  [OK] Spectrum theme updated.");
