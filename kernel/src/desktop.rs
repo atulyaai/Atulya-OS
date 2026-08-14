@@ -699,27 +699,36 @@ impl Terminal {
                 }
                 Err(_) => self.write_line("ls: cannot access directory"),
             }
-        } else if cmd_str.starts_with("cat ") {
-            let file = cmd_str.get(4..).unwrap_or("").trim();
+        } else if cmd_str.starts_with("cat ") || cmd_str.starts_with("view ") || cmd_str.starts_with("open ") {
+            let prefix_len = if cmd_str.starts_with("cat ") { 4 } else { 5 };
+            let file = cmd_str.get(prefix_len..).unwrap_or("").trim();
             let resolved = self.resolve_path(file);
             match self.fs.open(&resolved, OpenFlags::Read) {
                 Ok(handle) => {
-                    let mut buf = [0u8; 256];
-                    loop {
-                        match self.fs.read(handle, &mut buf) {
+                    let mut buf = alloc::vec![0u8; 8192];
+                    let mut total_read = 0;
+                    while total_read < buf.len() {
+                        match self.fs.read(handle, &mut buf[total_read..]) {
                             Ok(0) => break,
-                            Ok(n) => {
-                                let s = core::str::from_utf8(&buf[..n]).unwrap_or("");
-                                self.write_str(s);
-                            }
+                            Ok(n) => total_read += n,
                             Err(_) => break,
                         }
                     }
                     let _ = self.fs.close(handle);
-                    self.new_line();
+
+                    let decoded = crate::viewer::sniff_and_decode(&resolved, &buf[..total_read]);
+                    self.write_str(decoded.format.icon());
+                    self.write_str(" [");
+                    self.write_str(decoded.format.name());
+                    self.write_line("]");
+                    self.write_str("  ");
+                    self.write_line(&decoded.header_summary);
+                    for line in &decoded.preview_lines {
+                        self.write_line(line);
+                    }
                 }
                 Err(_) => {
-                    self.write_str("cat: ");
+                    self.write_str("view: ");
                     self.write_str(file);
                     self.write_line(": No such file");
                 }

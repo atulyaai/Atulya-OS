@@ -29,6 +29,7 @@ mod pci;
 mod gdt;
 mod ai;
 mod syscall;
+pub mod viewer;
 
 use bootloader_api::{config::Mapping, entry_point, BootInfo, BootloaderConfig};
 use core::panic::PanicInfo;

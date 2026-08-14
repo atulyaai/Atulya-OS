@@ -80,14 +80,30 @@ impl RamFs {
             data: b"OS_THEME=cyberpunk_cyan\nREFRESH_RATE=60\nQUANTUM_MESH=enabled\n".to_vec(),
             is_dir: false,
         });
-        files.insert(String::from("/apps"), Inode { data: Vec::new(), is_dir: true });
-        files.insert(String::from("/apps/quantum_skill.wasm"), Inode {
+        files.insert(String::from("/docs"), Inode { data: Vec::new(), is_dir: true });
+        files.insert(String::from("/docs/spec.pdf"), Inode {
+            data: b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Count 1 >>\nendobj\nxref\n0 3\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n".to_vec(),
+            is_dir: false,
+        });
+        files.insert(String::from("/media"), Inode { data: Vec::new(), is_dir: true });
+        files.insert(String::from("/media/avatar.png"), Inode {
             data: alloc::vec![
-                0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, // Magic \0asm + version 1
-                0x01, 0x05, 0x01, 0x60, 0x00, 0x01, 0x7f,       // Type section: () -> i32
-                0x03, 0x02, 0x01, 0x00,                         // Function section
-                0x07, 0x08, 0x01, 0x04, b'm', b'a', b'i', b'n', 0x00, 0x00, // Export "main"
-                0x0a, 0x07, 0x01, 0x05, 0x00, 0x41, 0x2a, 0x0f, 0x0b // Code: i32.const 42; return; end
+                0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A, // PNG Header
+                0x00, 0x00, 0x00, 0x0D, b'I', b'H', b'D', b'R',
+                0x00, 0x00, 0x01, 0x00, // 256 px width
+                0x00, 0x00, 0x01, 0x00, // 256 px height
+                0x08, 0x06, 0x00, 0x00, 0x00, // 8-bit RGBA
+                0x00, 0x00, 0x00, 0x00,
+            ],
+            is_dir: false,
+        });
+        files.insert(String::from("/media/audio.wav"), Inode {
+            data: alloc::vec![
+                b'R', b'I', b'F', b'F', 0x24, 0x00, 0x00, 0x00, b'W', b'A', b'V', b'E',
+                b'f', b'm', b't', b' ', 0x10, 0x00, 0x00, 0x00, 0x01, 0x00, 0x02, 0x00, // 2 channels
+                0x44, 0xAC, 0x00, 0x00, // 44100 Hz
+                0x10, 0xB1, 0x02, 0x00, 0x04, 0x00, 0x10, 0x00, // 16-bit
+                b'd', b'a', b't', b'a', 0x00, 0x00, 0x00, 0x00,
             ],
             is_dir: false,
         });
