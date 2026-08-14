@@ -201,10 +201,8 @@ impl RamFs {
             restored_files.insert(path, Inode { data, is_dir });
         }
 
-        if !restored_files.is_empty() {
-            self.files = restored_files;
-            crate::serial::serial_write_line("VFS: Successfully restored filesystem from ATA disk.");
-        }
+        self.files = restored_files;
+        crate::serial::serial_write_line("VFS: Successfully restored filesystem from ATA disk.");
 
         Ok(self.files.len())
     }
