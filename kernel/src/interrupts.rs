@@ -48,9 +48,97 @@ pub fn init() {
     IDT.load();
     unsafe {
         PICS.lock().initialize();
+        // Unmask IRQ0 (timer), IRQ1 (keyboard), IRQ2 (cascade) on Master PIC (Port 0x21)
+        // and IRQ12 (PS/2 mouse, line 4) on Slave PIC (Port 0xA1)
+        x86_64::instructions::port::Port::<u8>::new(0x21).write(0xF8);
+        x86_64::instructions::port::Port::<u8>::new(0xA1).write(0xEF);
     }
     init_pit();
-    crate::serial::serial_write_line("IDT + PIC + PIT initialized.");
+    enable_sse();
+    init_ps2_hardware();
+    crate::serial::serial_write_line("IDT + PIC + PIT + PS/2 Mouse initialized.");
+}
+
+pub fn init_ps2_hardware() {
+    unsafe {
+        let mut p64 = x86_64::instructions::port::Port::<u8>::new(0x64);
+        let mut p60 = x86_64::instructions::port::Port::<u8>::new(0x60);
+
+        // 1. Enable auxiliary device (mouse)
+        ps2_wait_write();
+        p64.write(0xA8);
+
+        // 2. Read command byte
+        ps2_wait_write();
+        p64.write(0x20);
+        ps2_wait_read();
+        let mut status = p60.read();
+
+        // 3. Enable mouse interrupt (bit 1) and keyboard interrupt (bit 0), disable clock disables (bits 4 & 5)
+        status |= 0x03;
+        status &= !0x30;
+        ps2_wait_write();
+        p64.write(0x60);
+        ps2_wait_write();
+        p60.write(status);
+
+        // 4. Set defaults
+        ps2_mouse_write(0xF6);
+        let _ = ps2_mouse_read();
+
+        // 5. Enable data streaming
+        ps2_mouse_write(0xF4);
+        let _ = ps2_mouse_read();
+    }
+}
+
+unsafe fn ps2_wait_write() {
+    let mut p = x86_64::instructions::port::Port::<u8>::new(0x64);
+    for _ in 0..100_000 {
+        if p.read() & 0x02 == 0 { return; }
+        core::hint::spin_loop();
+    }
+}
+
+unsafe fn ps2_wait_read() {
+    let mut p = x86_64::instructions::port::Port::<u8>::new(0x64);
+    for _ in 0..100_000 {
+        if p.read() & 0x01 != 0 { return; }
+        core::hint::spin_loop();
+    }
+}
+
+unsafe fn ps2_mouse_write(val: u8) {
+    let mut p64 = x86_64::instructions::port::Port::<u8>::new(0x64);
+    let mut p60 = x86_64::instructions::port::Port::<u8>::new(0x60);
+    ps2_wait_write();
+    p64.write(0xD4);
+    ps2_wait_write();
+    p60.write(val);
+}
+
+unsafe fn ps2_mouse_read() -> u8 {
+    let mut p60 = x86_64::instructions::port::Port::<u8>::new(0x60);
+    ps2_wait_read();
+    p60.read()
+}
+
+pub fn enable_sse() {
+    unsafe {
+        use core::arch::asm;
+        let mut cr0: u64;
+        asm!("mov {}, cr0", out(reg) cr0);
+        cr0 &= !(1 << 2); // clear EM
+        cr0 |= 1 << 1;    // set MP
+        asm!("mov cr0, {}", in(reg) cr0);
+
+        let mut cr4: u64;
+        asm!("mov {}, cr4", out(reg) cr4);
+        cr4 |= 1 << 9;  // set OSFXSR
+        cr4 |= 1 << 10; // set OSXMMEXCPT
+        asm!("mov cr4, {}", in(reg) cr4);
+    }
+    crate::serial::serial_write_line("SSE enabled.");
 }
 
 pub fn enable() {

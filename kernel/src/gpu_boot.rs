@@ -144,7 +144,7 @@ impl GpuBoot {
                     let ring2 = fexp(-((d - orb_r * 1.45 * petal).abs()).powi_f(2) * 38.0);
                     let core = fexp(-d * d * 32.0);
                     let nsp = 24.0;
-                    let nearest = ((theta * nsp / TAU).round()) * TAU / nsp;
+                    let nearest = fround(theta * nsp / TAU) * TAU / nsp;
                     let adist = (theta - nearest).abs();
                     let filament = fexp(-adist * adist * 420.0)
                         * fexp(-((d - orb_r).abs()).powi_f(2) * 18.0);
@@ -271,8 +271,8 @@ impl GpuBoot {
             let wx = (w / 2).saturating_sub(tw / 2);
             let wy = (h as f32 * 0.74) as usize;
             let col = Rgb::new(
-                (200 * mark) as u8 + 40,
-                (235 * mark) as u8 + 20,
+                (200.0 * mark) as u8 + 40,
+                (235.0 * mark) as u8 + 20,
                 255,
             );
             font::draw_text(display, wx, wy, word, scale, col);
@@ -449,6 +449,10 @@ fn fcosf(x: f32) -> f32 {
     fsinf(x + PI / 2.0)
 }
 
+fn fround(x: f32) -> f32 {
+    if x >= 0.0 { (x + 0.5) as i32 as f32 } else { (x - 0.5) as i32 as f32 }
+}
+
 fn fexp(x: f32) -> f32 {
     if x > 80.0 {
         return 1.0e30;
@@ -458,7 +462,7 @@ fn fexp(x: f32) -> f32 {
     }
     let k = (x * 1.44269504) as i32; // log2(e)
     let f = x - (k as f32) * 0.69314718;
-    let mut result = 1.0 + f + f * f / 2.0 + f * f * f / 6.0 + f * f * f * f / 24.0;
+    let result = 1.0 + f + f * f / 2.0 + f * f * f / 6.0 + f * f * f * f / 24.0;
     if k >= 0 {
         result * (1u32 << k.min(31)) as f32
     } else {

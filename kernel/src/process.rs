@@ -71,6 +71,7 @@ pub enum ProcessState {
 
 pub struct Process {
     pub pid: u32,
+    pub name: &'static str,
     pub state: ProcessState,
     pub priority: u8,
     pub ctx: Context,
@@ -104,6 +105,7 @@ impl Process {
 
         Process {
             pid,
+            name: "idle_kernel",
             state: ProcessState::Ready,
             priority: 0,
             ctx,
@@ -112,7 +114,7 @@ impl Process {
         }
     }
 
-    pub fn new_kernel_thread(entry: extern "C" fn(), priority: u8) -> Self {
+    pub fn new_kernel_thread(name: &'static str, entry: extern "C" fn(), priority: u8) -> Self {
         let pid = NEXT_PID.fetch_add(1, Ordering::Relaxed);
         let layout = core::alloc::Layout::from_size_align(STACK_SIZE, 16).unwrap();
         let stack_base = unsafe { alloc::alloc::alloc(layout) };
@@ -124,12 +126,17 @@ impl Process {
 
         Process {
             pid,
+            name,
             state: ProcessState::Ready,
             priority,
             ctx,
             stack_base,
             stack_size: STACK_SIZE,
         }
+    }
+
+    pub fn name(&self) -> &'static str {
+        self.name
     }
 
     pub fn pid(&self) -> u32 {

@@ -405,7 +405,101 @@ impl Terminal {
 
         if cmd_str == "help" {
             self.write_line("Commands: ls, cat, mkdir, rm, echo, pwd, cd,");
-            self.write_line("          clear, neofetch, theme, joke, scan, matrix");
+            self.write_line("          pci, ifconfig, ping, ps, wasm,");
+            self.write_line("          sound, skills, net, neofetch,");
+            self.write_line("          clear, theme, joke, scan, matrix");
+        } else if cmd_str == "pci" {
+            self.write_line("── Discovered PCI Hardware Devices ──");
+            let devices = crate::pci::PciBus::scan();
+            if devices.is_empty() {
+                self.write_line("  No PCI devices found on bus 0.");
+            } else {
+                for dev in &devices {
+                    self.write_str("  [");
+                    self.write_str(dev.description());
+                    self.write_line("]");
+                }
+            }
+        } else if cmd_str == "ifconfig" {
+            self.write_line("── Network Interfaces ──");
+            self.write_line("  lo0: flags=UP,LOOPBACK mtu 65536");
+            self.write_line("       inet 127.0.0.1 netmask 255.0.0.0");
+            self.write_line("  eth0: flags=UP,BROADCAST,MULTICAST mtu 1500");
+            self.write_line("       ether 52:54:00:12:34:56");
+            self.write_line("       inet 10.0.2.15 netmask 255.255.255.0");
+            self.write_line("       driver VirtIO-Net (PCI Subsystem)");
+        } else if cmd_str.starts_with("ping") {
+            self.write_line("PING 10.0.2.2 (10.0.2.2): 56 data bytes");
+            self.write_line("64 bytes from 10.0.2.2: icmp_seq=0 ttl=64 time=0.42 ms");
+            self.write_line("64 bytes from 10.0.2.2: icmp_seq=1 ttl=64 time=0.38 ms");
+            self.write_line("--- 10.0.2.2 ping statistics ---");
+            self.write_line("2 packets transmitted, 2 received, 0% packet loss");
+        } else if cmd_str == "ps" {
+            self.write_line("── Active Process Table ──");
+            self.write_line("PID  NAME           STATE");
+            self.write_line("───  ─────────────  ────────");
+            let procs = crate::scheduler::list_processes();
+            for (pid, name, state) in &procs {
+                self.write_str(" ");
+                let mut pbuf = [0u8; 4];
+                let pstr = if *pid >= 10 {
+                    pbuf[0] = b'0' + (pid / 10) as u8;
+                    pbuf[1] = b'0' + (pid % 10) as u8;
+                    core::str::from_utf8(&pbuf[..2]).unwrap_or("??")
+                } else {
+                    pbuf[0] = b'0' + *pid as u8;
+                    core::str::from_utf8(&pbuf[..1]).unwrap_or("?")
+                };
+                self.write_str(pstr);
+                self.write_str("   ");
+                self.write_str(name);
+                self.write_str("   ");
+                self.write_line(state);
+            }
+        } else if cmd_str.starts_with("wasm") {
+            let wasm_file = "/apps/quantum_skill.wasm";
+            self.write_line("── WebAssembly Bytecode Executor ──");
+            if let Ok(handle) = self.fs.open(wasm_file, crate::fs::vfs::OpenFlags::Read) {
+                let mut buf = alloc::vec![0u8; 1024];
+                if let Ok(n) = self.fs.read(handle, &mut buf) {
+                    let mut runtime = crate::wasm::runtime::WasmRuntime::new();
+                    if let Ok(()) = runtime.load_module("quantum_skill", &buf[..n]) {
+                        self.write_line("  [OK] Validated WASM binary (\\0asm v1)");
+                        if let Ok(result) = runtime.run_module("quantum_skill") {
+                            self.write_str("  [OK] main() executed. Return code: ");
+                            let mut rbuf = [0u8; 4];
+                            let rstr = if result >= 10 {
+                                rbuf[0] = b'0' + (result / 10) as u8;
+                                rbuf[1] = b'0' + (result % 10) as u8;
+                                core::str::from_utf8(&rbuf[..2]).unwrap_or("42")
+                            } else {
+                                rbuf[0] = b'0' + result as u8;
+                                core::str::from_utf8(&rbuf[..1]).unwrap_or("0")
+                            };
+                            self.write_line(rstr);
+                        }
+                    } else {
+                        self.write_line("  [ERR] Failed to parse WASM module");
+                    }
+                }
+            } else {
+                self.write_line("  [ERR] File /apps/quantum_skill.wasm not found in VFS");
+            }
+        } else if cmd_str == "sound" {
+            self.write_line("Playing Cyber Harmonic Synthesizer Chime...");
+            crate::sound::Sound::play_boot_chime();
+        } else if cmd_str == "skills" {
+            self.write_line("── Autonomous AI Subsystems ──");
+            self.write_line("  [1] Memory: Context Vector Graph [ONLINE]");
+            self.write_line("  [2] Voice:  Neural TTS/STT Matrix [ONLINE]");
+            self.write_line("  [3] Vision: Multimodal Canvas Stream [ONLINE]");
+            self.write_line("  [4] Skills: Autonomous Agent Core [ACTIVE]");
+            self.write_line("  [5] Security: Bio-Gate AXON-7 [SECURE]");
+        } else if cmd_str == "net" {
+            self.write_line("── Quantum Mesh Network Telemetry ──");
+            self.write_line("  Interface: loopback (127.0.0.1) [UP]");
+            self.write_line("  Adapter: VirtIO-Net PCI [INITIALIZED]");
+            self.write_line("  Mesh Packets: TX 1,024 | RX 1,024 | 0% Loss");
         } else if cmd_str == "clear" {
             self.clear();
             return;
@@ -628,45 +722,156 @@ pub fn run(display: &mut Display) -> ! {
     let mut drag_window: Option<(isize, isize, isize, isize)> = None;
 
     let mut windows = alloc::vec![
-        Window { x: 120, y: 60, w: 560, h: 340, title: "Terminal", active: true },
-        Window { x: 200, y: 100, w: 480, h: 300, title: "System Monitor", active: false },
-        Window { x: -9999, y: -9999, w: 420, h: 260, title: "Files", active: false },
-        Window { x: -9999, y: -9999, w: 380, h: 220, title: "Settings", active: false },
+        Window { x: 200, y: 120, w: 560, h: 340, title: "Terminal", active: true },
+        Window { x: 240, y: 150, w: 500, h: 320, title: "Web Browser", active: false },
+        Window { x: -9999, y: -9999, w: 460, h: 280, title: "Network Mesh", active: false },
+        Window { x: -9999, y: -9999, w: 520, h: 320, title: "Code Editor", active: false },
+        Window { x: -9999, y: -9999, w: 440, h: 280, title: "File Manager", active: false },
+        Window { x: -9999, y: -9999, w: 480, h: 300, title: "System Analytics", active: false },
+        Window { x: -9999, y: -9999, w: 400, h: 240, title: "Media Player", active: false },
+        Window { x: -9999, y: -9999, w: 420, h: 260, title: "3D Container", active: false },
+        Window { x: -9999, y: -9999, w: 440, h: 270, title: "Security Shield", active: false },
     ];
 
     let mut focused_win: usize = 0;
 
     let mut last_tick = crate::interrupts::tick_counter::get();
 
-    let mut loop_count: u64 = 0;
+    
     loop {
-        loop_count += 1;
+        
         let theme = &THEMES[theme_idx % 4];
 
-        // Draw background gradient
-        display.gradient_rect_v(0, 0, w, h, theme.wall_top, theme.wall_bot);
+        // ── 1. Background Futuristic Obsidian Cyber Canvas ────────────────
+        display.gradient_rect_v(0, 0, w, h, Rgb::new(1, 2, 4), Rgb::new(3, 4, 10));
 
-        // Draw taskbar
-        display.rect_alpha(0, h - TASKBAR_HEIGHT, w, TASKBAR_HEIGHT, theme.accent, 40);
-        display.rect(0, h - TASKBAR_HEIGHT, w, 2, theme.accent);
+        // Background subtle starry sky
+        let star_seed = [45usize, 180, 360, 580, 820, 1040, 1260, 1480, 1700, 1860];
+        for (si, &sx) in star_seed.iter().enumerate() {
+            let sy = (si * 43 + 20) % (h * 60 / 100);
+            display.pixel(sx % w, sy, Rgb::new(140, 180, 220));
+        }
 
-        // Dock icons
-        let dock_icons = ["Terminal", "Monitor", "Files", "Settings"];
-        let icon_w: usize = 60;
-        let icon_h: usize = 30;
-        let dock_start_x = (w / 2) - (dock_icons.len() * (icon_w + 10)) / 2;
-        for (i, name) in dock_icons.iter().enumerate() {
-            let ix = dock_start_x + i * (icon_w + 10);
-            let iy = h - TASKBAR_HEIGHT + 10;
-            let bg = if i == 0 { theme.accent } else { theme.win_inactive };
-            display.rect_rounded_alpha(ix, iy, icon_w, icon_h, 6, bg, 180);
-            let tx = ix + 6;
-            let ty = iy + 10;
-            for (ci, ch) in name.bytes().enumerate() {
-                if tx + ci * 8 < w && ty < h {
-                    crate::font::draw_char(display, tx + ci * 8, ty, ch, 1, theme.text);
-                }
-            }
+        // Background dark mountain / skyline silhouette
+        let city_y = h * 68 / 100;
+        display.gradient_rect_v(0, city_y, w, h - city_y, Rgb::new(2, 4, 8), Rgb::new(1, 2, 4));
+        display.rect(0, city_y, w, 1, theme.accent.dim(40));
+
+        // ── 2. Top-Center AI Greeting & Waveform ─────────────────────────────
+        let tick = crate::interrupts::tick_counter::get();
+        let cx = w / 2;
+        crate::font::centered_text(display, cx, 28, "GOOD EVENING, ATUL", 1, Rgb::new(180, 230, 255));
+        crate::font::centered_text(display, cx, 48, "ATULYA IS READY.", 2, theme.accent);
+
+        // Animated Multi-Color Audio Waveform
+        let wave_y = 80;
+        for i in 0..80 {
+            let wx = cx.saturating_sub(160) + i * 4;
+            let wave_val = crate::math::sinish((tick as i32 * 4 + i as i32 * 14) % 360).unsigned_abs() as usize;
+            let wave_h = (wave_val * 16 / 1024).max(2);
+            let col = if i < 26 {
+                Rgb::new(255, 160, 40) // Amber
+            } else if i < 54 {
+                theme.accent           // Cyan
+            } else {
+                Rgb::new(210, 80, 255) // Magenta
+            };
+            display.rect(wx, wave_y - wave_h, 2, wave_h * 2, col);
+        }
+
+        // ── 3. Left Navigation Sidebar ───────────────────────────────────────
+        let side_w = 160;
+        display.rect_rounded_alpha(16, 20, side_w, h - 90, 8, Rgb::new(3, 10, 22), 200);
+        display.rect_rounded_outline(16, 20, side_w, h - 90, 8, theme.accent.dim(100));
+
+        // (A) ATULYA OS brand
+        display.circle_outline(36, 42, 10, theme.accent);
+        crate::font::draw_char(display, 32, 38, b'A', 1, theme.accent);
+        crate::font::draw_text(display, 52, 38, "ATULYA OS", 1, Rgb::new(200, 240, 255));
+        display.rect(26, 60, side_w - 20, 1, theme.accent.dim(80));
+
+        let nav_items = ["Atulya", "Workspace", "Projects", "Memory", "Skills", "Settings"];
+        for (ni, item) in nav_items.iter().enumerate() {
+            let ny = 80 + ni * 34;
+            display.circle_filled(32, ny + 4, 3, theme.accent.dim(180));
+            crate::font::draw_text(display, 44, ny, item, 1, Rgb::new(180, 220, 250));
+        }
+
+        // ── 4. Right Telemetry HUD Card ──────────────────────────────────────
+        let right_w = 210;
+        let right_x = w.saturating_sub(right_w + 16);
+        display.rect_rounded_alpha(right_x, 20, right_w, 230, 8, Rgb::new(3, 10, 22), 200);
+        display.rect_rounded_outline(right_x, 20, right_w, 230, 8, theme.accent.dim(100));
+
+        crate::font::draw_text(display, right_x + 14, 34, "ATULYA CORE STATUS", 1, theme.accent);
+        display.rect(right_x + 14, 48, right_w - 28, 1, theme.accent.dim(80));
+
+        let status_list = [
+            ("Memory", "ONLINE", Rgb::new(210, 80, 255)),
+            ("Voice",  "ONLINE", theme.accent),
+            ("Vision", "ONLINE", Rgb::new(0, 150, 255)),
+            ("Skills", "ONLINE", Rgb::new(255, 160, 40)),
+            ("Security", "SECURE", Rgb::new(0, 230, 118)),
+        ];
+
+        for (si, (label, val, dot_col)) in status_list.iter().enumerate() {
+            let sy = 60 + si * 22;
+            crate::font::draw_text(display, right_x + 14, sy, label, 1, Rgb::new(180, 210, 240));
+            crate::font::draw_text(display, right_x + 110, sy, val, 1, *dot_col);
+            display.circle_filled(right_x + 175, sy + 3, 3, *dot_col);
+        }
+
+        // Active Context Box
+        let act_y = 176;
+        display.rect(right_x + 14, act_y, right_w - 28, 1, theme.accent.dim(80));
+        crate::font::draw_text(display, right_x + 14, act_y + 8, "ACTIVE CONTEXT", 1, theme.accent.dim(180));
+        crate::font::draw_text(display, right_x + 14, act_y + 22, "No active context.", 1, Rgb::new(150, 190, 220));
+        crate::font::draw_text(display, right_x + 14, act_y + 34, "You're all set, Atul.", 1, Rgb::new(150, 190, 220));
+
+        // Circular Holographic (A) Insignia Badge
+        let badge_y = 265;
+        display.rect_rounded_alpha(right_x, badge_y, right_w, 100, 8, Rgb::new(3, 10, 22), 200);
+        display.rect_rounded_outline(right_x, badge_y, right_w, 100, 8, theme.accent.dim(100));
+        let badge_cx = right_x + right_w / 2;
+        let badge_cy = badge_y + 50;
+        display.dotted_circle_outline(badge_cx, badge_cy, 36, 3, theme.accent.dim(140));
+        display.circle_outline(badge_cx, badge_cy, 28, theme.accent);
+        crate::font::centered_text(display, badge_cx, badge_cy - 10, "A", 3, theme.accent);
+
+        // ── 5. Bottom Floating Glass Dock (9 Storyboard Apps) ────────────────
+        let dock_apps = [
+            ("Term", ">_"),
+            ("Web",  "W3"),
+            ("Mesh", "NET"),
+            ("Code", "</>"),
+            ("File", "DIR"),
+            ("Stat", "CPU"),
+            ("Play", "AV"),
+            ("3D",   "BOX"),
+            ("Sec",  "SEC"),
+        ];
+
+        let icon_w: usize = 48;
+        let icon_h: usize = 42;
+        let dock_total_w = dock_apps.len() * (icon_w + 12) + 24;
+        let dock_x = cx.saturating_sub(dock_total_w / 2);
+        let dock_y = h.saturating_sub(60);
+
+        display.rect_rounded_alpha(dock_x, dock_y, dock_total_w, 52, 10, Rgb::new(3, 10, 22), 220);
+        display.rect_rounded_outline(dock_x, dock_y, dock_total_w, 52, 10, theme.accent.dim(120));
+
+        for (i, (name, icon)) in dock_apps.iter().enumerate() {
+            let ix = dock_x + 12 + i * (icon_w + 12);
+            let iy = dock_y + 5;
+            let is_hovered = (mouse.x as usize >= ix && mouse.x as usize <= ix + icon_w)
+                && (mouse.y as usize >= iy && mouse.y as usize <= iy + icon_h);
+
+            let bg_alpha = if is_hovered { 230 } else { 160 };
+            display.rect_rounded_alpha(ix, iy, icon_w, icon_h, 6, Rgb::new(6, 24, 48), bg_alpha);
+            display.rect_rounded_outline(ix, iy, icon_w, icon_h, 6, if is_hovered { theme.accent } else { theme.accent.dim(120) });
+
+            crate::font::centered_text(display, ix + icon_w / 2, iy + 8, icon, 1, theme.accent);
+            crate::font::centered_text(display, ix + icon_w / 2, iy + 24, name, 1, Rgb::new(180, 220, 255));
         }
 
         // Draw taskbar clock
@@ -680,10 +885,10 @@ pub fn run(display: &mut Display) -> ! {
             b'0' + (minutes / 10) as u8, b'0' + (minutes % 10) as u8, b':',
             b'0' + (seconds / 10) as u8, b'0' + (seconds % 10) as u8,
         ];
-        let cx = (w as isize - 90) as usize;
-        let cy = h - 35;
+        let clk_x = (w as isize - 90) as usize;
+        let clk_y = 28;
         for (i, &ch) in time_str.iter().enumerate() {
-            crate::font::draw_char(display, cx + i * 8, cy, ch, 1, theme.text);
+            crate::font::draw_char(display, clk_x + i * 8, clk_y, ch, 1, theme.accent);
         }
 
         // Draw windows (back to front)
@@ -759,19 +964,16 @@ pub fn run(display: &mut Display) -> ! {
                         }
                     }
                 }
-            } else if win.title == "System Monitor" {
+            } else if win.title == "System Analytics" {
                 let tick = crate::interrupts::tick_counter::get();
-                let _uptime_secs = tick / 100;
                 let info_lines = [
-                    "── System Monitor ──",
-                    "",
-                    "  AtulyaOS Kernel v0.3",
-                    "  Architecture: x86_64",
-                    "",
-                    "  Timer ticks: ",
-                    "  Uptime:      ",
-                    "  Heap: Active",
-                    "  Interrupts:  Enabled",
+                    "── System Analytics ──",
+                    "  OS: Atulya OS (Cyberpunk Edition)",
+                    "  Architecture: x86_64 Long Mode",
+                    "  Heap Allocation: 128 MB Active",
+                    "  VGA Mode: 1920x1080 32bpp TrueColor",
+                    "  Interrupt Subsystems: IDT / PIC / PIT",
+                    "  CPU State: Active [Optimal]",
                 ];
                 for (li, line) in info_lines.iter().enumerate() {
                     let ty = win.y as usize + 36 + li * 18;
@@ -782,54 +984,29 @@ pub fn run(display: &mut Display) -> ! {
                         }
                     }
                 }
-                // Dynamic info: tick count
-                let tick_str = {
-                    let mut buf = [0u8; 20];
-                    let mut val = tick;
-                    let mut idx = 20;
-                    if val == 0 {
-                        buf[19] = b'0';
-                        idx = 19;
-                    } else {
-                        while val > 0 && idx > 0 {
-                            idx -= 1;
-                            buf[idx] = b'0' + (val % 10) as u8;
-                            val /= 10;
-                        }
-                    }
-                    let mut out = [0u8; 20];
-                    let len = 20 - idx;
-                    out[..len].copy_from_slice(&buf[idx..]);
-                    // Prepend "  Ticks: "
-                    let prefix = b"  Ticks: ";
-                    let mut result = [0u8; 40];
-                    let mut ri = 0;
-                    for &b in prefix.iter() {
-                        result[ri] = b;
-                        ri += 1;
-                    }
-                    for &b in &out[..len] {
-                        result[ri] = b;
-                        ri += 1;
-                    }
-                    result
-                };
-                for ci in 0..tick_str.len().min(30) {
-                    let tx = win.x as usize + 12 + ci * 8;
-                    let ty = win.y as usize + 36 + 5 * 18;
-                    if tx + 8 < win.x as usize + win.w && ty + 16 < win.y as usize + win.h {
-                        crate::font::draw_char(display, tx, ty, tick_str[ci], 1, theme.text);
-                    }
+                // Live tick rate & uptime
+                let mut buf = [0u8; 16];
+                let mut val = tick / 100;
+                let mut idx = 16;
+                if val == 0 { buf[15] = b'0'; idx = 15; }
+                while val > 0 && idx > 0 {
+                    idx -= 1;
+                    buf[idx] = b'0' + (val % 10) as u8;
+                    val /= 10;
                 }
-            } else if win.title == "Files" {
+                let ut_str = core::str::from_utf8(&buf[idx..]).unwrap_or("0");
+                let uy = win.y as usize + 36 + 7 * 18;
+                crate::font::draw_text(display, win.x as usize + 12, uy, "  Uptime (seconds): ", 1, theme.text);
+                crate::font::draw_text(display, win.x as usize + 170, uy, ut_str, 1, theme.accent);
+            } else if win.title == "Web Browser" {
                 let lines = [
-                    "── Files ──",
+                    "── Atulya Cyber Web Browser ──",
+                    "  [URL: atulya://ai.network/home]",
                     "",
-                    "  Use the Terminal for",
-                    "  filesystem operations.",
-                    "",
-                    "  Commands: ls, cat, mkdir,",
-                    "  rm, echo, cd, pwd",
+                    "  Welcome to the Quantum Decentralized Web.",
+                    "  Connected to 14,892 Mesh Nodes.",
+                    "  Encryption: Quantum Post-Key (Kyber-1024)",
+                    "  Latency: 0.12 ms | Throughput: 100 Gbps",
                 ];
                 for (li, line) in lines.iter().enumerate() {
                     let ty = win.y as usize + 36 + li * 18;
@@ -840,16 +1017,34 @@ pub fn run(display: &mut Display) -> ! {
                         }
                     }
                 }
-            } else if win.title == "Settings" {
-                let theme_names = ["Cyberpunk Cyan", "Matrix Green", "macOS Obsidian", "Retro Gold"];
-                let current = theme_names[theme_idx % 4];
+            } else if win.title == "Code Editor" {
                 let lines = [
-                    "── Settings ──",
-                    "",
-                    "  Theme: ",
-                    "",
-                    "  Type 'theme' in",
-                    "  Terminal to cycle.",
+                    "// main.rs - Atulya OS Kernel",
+                    "fn kernel_main(boot_info: &BootInfo) -> ! {",
+                    "    serial::serial_init();",
+                    "    boot_splash::run(&mut display);",
+                    "    desktop::run(&mut display);",
+                    "}",
+                ];
+                for (li, line) in lines.iter().enumerate() {
+                    let ty = win.y as usize + 36 + li * 18;
+                    for (ci, ch) in line.bytes().enumerate() {
+                        let tx = win.x as usize + 12 + ci * 8;
+                        if tx + 8 < win.x as usize + win.w && ty + 16 < win.y as usize + win.h {
+                            let col = if li == 0 { Rgb::new(100, 200, 100) } else { theme.accent };
+                            crate::font::draw_char(display, tx, ty, ch, 1, col);
+                        }
+                    }
+                }
+            } else if win.title == "File Manager" {
+                let lines = [
+                    "── File Manager (VFS / RAMDisk) ──",
+                    "  📁 /",
+                    "  ├── 📁 system/",
+                    "  │   ├── 📄 kernel.elf",
+                    "  │   └── 📄 config.sys",
+                    "  ├── 📁 apps/",
+                    "  └── 📁 user/ (Atul)",
                 ];
                 for (li, line) in lines.iter().enumerate() {
                     let ty = win.y as usize + 36 + li * 18;
@@ -860,11 +1055,73 @@ pub fn run(display: &mut Display) -> ! {
                         }
                     }
                 }
-                // Draw current theme name
-                for (ci, ch) in current.bytes().enumerate() {
-                    let tx = win.x as usize + 12 + 8 * 8;
-                    if tx + 8 < win.x as usize + win.w {
-                        crate::font::draw_char(display, tx + ci * 8, win.y as usize + 36 + 2 * 18, ch, 1, theme.accent);
+            } else if win.title == "Security Shield" {
+                let lines = [
+                    "── Security Status ──",
+                    "  Firewall: ACTIVE [Enforced]",
+                    "  Identity: ATUL (Full Clearance)",
+                    "  Biometric Auth: VERIFIED",
+                    "  Port Scanner: 0 Open Inbound",
+                    "  Intrusion Defense: ARMED",
+                ];
+                for (li, line) in lines.iter().enumerate() {
+                    let ty = win.y as usize + 36 + li * 18;
+                    for (ci, ch) in line.bytes().enumerate() {
+                        let tx = win.x as usize + 12 + ci * 8;
+                        if tx + 8 < win.x as usize + win.w && ty + 16 < win.y as usize + win.h {
+                            crate::font::draw_char(display, tx, ty, ch, 1, Rgb::new(0, 230, 118));
+                        }
+                    }
+                }
+            } else if win.title == "Network Mesh" {
+                let lines = [
+                    "── Quantum Mesh Network ──",
+                    "  Mesh State: SYNCHRONIZED",
+                    "  Nodes Online: 4,096",
+                    "  Gateway: 10.0.0.1 (Atulya Hub)",
+                    "  Bandwidth: 10 Gbps Duplex",
+                ];
+                for (li, line) in lines.iter().enumerate() {
+                    let ty = win.y as usize + 36 + li * 18;
+                    for (ci, ch) in line.bytes().enumerate() {
+                        let tx = win.x as usize + 12 + ci * 8;
+                        if tx + 8 < win.x as usize + win.w && ty + 16 < win.y as usize + win.h {
+                            crate::font::draw_char(display, tx, ty, ch, 1, theme.accent);
+                        }
+                    }
+                }
+            } else if win.title == "Media Player" {
+                let lines = [
+                    "── Media Player ──",
+                    "  Track: Cyberpunk Awakening OST",
+                    "  Artist: Atulya Sound Engine",
+                    "  Status: Playing [48kHz 24-bit]",
+                    "  Equalizer: Dynamic Spatial Audio",
+                ];
+                for (li, line) in lines.iter().enumerate() {
+                    let ty = win.y as usize + 36 + li * 18;
+                    for (ci, ch) in line.bytes().enumerate() {
+                        let tx = win.x as usize + 12 + ci * 8;
+                        if tx + 8 < win.x as usize + win.w && ty + 16 < win.y as usize + win.h {
+                            crate::font::draw_char(display, tx, ty, ch, 1, Rgb::new(220, 100, 255));
+                        }
+                    }
+                }
+            } else if win.title == "3D Container" {
+                let lines = [
+                    "── 3D Container Runtime ──",
+                    "  Container: Axon-Node-01",
+                    "  Engine: WebAssembly (Wasm-3D)",
+                    "  GPU Virtualization: Active",
+                    "  Framerate: 60.0 FPS",
+                ];
+                for (li, line) in lines.iter().enumerate() {
+                    let ty = win.y as usize + 36 + li * 18;
+                    for (ci, ch) in line.bytes().enumerate() {
+                        let tx = win.x as usize + 12 + ci * 8;
+                        if tx + 8 < win.x as usize + win.w && ty + 16 < win.y as usize + win.h {
+                            crate::font::draw_char(display, tx, ty, ch, 1, theme.text);
+                        }
                     }
                 }
             }
@@ -970,18 +1227,24 @@ pub fn run(display: &mut Display) -> ! {
                     drag_window = None;
                 }
 
-                // Dock icon restore
-                if mouse_pressed && !mouse_was_pressed && my >= h as isize - TASKBAR_HEIGHT as isize {
-                    let dock_icons_count = 4usize;
-                    let icon_w_i: isize = 60;
-                    let dock_start_x_i = (w / 2) as isize - (dock_icons_count as isize * (icon_w_i + 10)) / 2;
-                    for i in 0..dock_icons_count {
-                        let ix = dock_start_x_i + i as isize * (icon_w_i + 10);
-                        let iy = h as isize - TASKBAR_HEIGHT as isize + 10;
-                        if mx >= ix && mx < ix + icon_w_i && my >= iy && my < iy + 30 {
-                            if i < windows.len() && windows[i].x < -1000 {
-                                windows[i].x = 100 + i as isize * 40;
-                                windows[i].y = 60 + i as isize * 30;
+                // Dock icon click / restore
+                let dock_apps_count = 9usize;
+                let icon_w_i: isize = 48;
+                let dock_total_w_i = (dock_apps_count * (48 + 12) + 24) as isize;
+                let dock_start_x_i = (w / 2) as isize - dock_total_w_i / 2;
+                let dock_y_i = h as isize - 60;
+
+                if mouse_pressed && !mouse_was_pressed && my >= dock_y_i && my <= dock_y_i + 52 {
+                    for i in 0..dock_apps_count {
+                        let ix = dock_start_x_i + 12 + i as isize * (icon_w_i + 12);
+                        if mx >= ix && mx <= ix + icon_w_i {
+                            // Focus or restore window
+                            if i < windows.len() {
+                                if windows[i].x < -1000 {
+                                    windows[i].x = 180 + i as isize * 30;
+                                    windows[i].y = 80 + i as isize * 20;
+                                }
+                                windows[focused_win].active = false;
                                 windows[i].active = true;
                                 focused_win = i;
                             }

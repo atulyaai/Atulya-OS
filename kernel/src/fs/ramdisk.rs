@@ -65,6 +65,32 @@ impl RamFs {
             data: b"AtulyaOS - The Intent Computer System\nFuses macOS dock/menubar, Linux terminal,\nand Windows tiling window layouts.\n".to_vec(),
             is_dir: false,
         });
+        files.insert(String::from("/user"), Inode { data: Vec::new(), is_dir: true });
+        files.insert(String::from("/user/atul"), Inode { data: Vec::new(), is_dir: true });
+        files.insert(String::from("/user/atul/welcome.txt"), Inode {
+            data: b"Welcome Atul to your personal Quantum OS workspace.\nAll subsystems (Memory, Voice, Vision, Skills, Security) are active.\n".to_vec(),
+            is_dir: false,
+        });
+        files.insert(String::from("/user/atul/identity.json"), Inode {
+            data: b"{\n  \"user\": \"Atul\",\n  \"clearance\": \"Admin\",\n  \"system_id\": \"AXON-7\",\n  \"status\": \"Authorized\"\n}\n".to_vec(),
+            is_dir: false,
+        });
+        files.insert(String::from("/system"), Inode { data: Vec::new(), is_dir: true });
+        files.insert(String::from("/system/config.sys"), Inode {
+            data: b"OS_THEME=cyberpunk_cyan\nREFRESH_RATE=60\nQUANTUM_MESH=enabled\n".to_vec(),
+            is_dir: false,
+        });
+        files.insert(String::from("/apps"), Inode { data: Vec::new(), is_dir: true });
+        files.insert(String::from("/apps/quantum_skill.wasm"), Inode {
+            data: alloc::vec![
+                0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, // Magic \0asm + version 1
+                0x01, 0x05, 0x01, 0x60, 0x00, 0x01, 0x7f,       // Type section: () -> i32
+                0x03, 0x02, 0x01, 0x00,                         // Function section
+                0x07, 0x08, 0x01, 0x04, b'm', b'a', b'i', b'n', 0x00, 0x00, // Export "main"
+                0x0a, 0x07, 0x01, 0x05, 0x00, 0x41, 0x2a, 0x0f, 0x0b // Code: i32.const 42; return; end
+            ],
+            is_dir: false,
+        });
 
         RamFs {
             files,

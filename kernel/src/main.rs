@@ -2,6 +2,7 @@
 #![no_main]
 #![feature(alloc_error_handler)]
 #![feature(abi_x86_interrupt)]
+#![allow(dead_code)] // Silence warnings on scaffolded modules (gpu, net, wasm, memory) not yet wired.
 
 extern crate alloc;
 
@@ -21,7 +22,9 @@ mod fs;
 mod net;
 mod wasm;
 mod gpu;
-mod gpu_boot;
+mod login;
+mod sound;
+mod pci;
 
 use bootloader_api::{config::Mapping, entry_point, BootInfo, BootloaderConfig};
 use core::panic::PanicInfo;
@@ -92,12 +95,17 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
 
     boot_splash::run(&mut display);
 
-    let desktop_entry: extern "C" fn() = desktop_entry;
-    let desktop_proc = process::Process::new_kernel_thread(desktop_entry, 0);
-    scheduler::add_process(desktop_proc);
-    serial::serial_write_line("Desktop process created. Enabling interrupts...");
-
+    // Enable hardware interrupts for interactive login & desktop
     interrupts::enable();
+
+    // ── Holographic Biometric Login Gate ────────────────────────────────
+    let mut login_gate = login::LoginGate::new();
+    login_gate.run(&mut display);
+
+    let desktop_entry: extern "C" fn() = desktop_entry;
+    let desktop_proc = process::Process::new_kernel_thread("desktop_gui", desktop_entry, 0);
+    scheduler::add_process(desktop_proc);
+    serial::serial_write_line("Desktop process created.");
 
     loop {
         unsafe { core::arch::asm!("hlt"); }
@@ -105,9 +113,12 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
 }
 
 extern "C" fn desktop_entry() {
-    loop {
-        unsafe { core::arch::asm!("hlt"); }
-    }
+    let mut display = unsafe {
+        let buffer = core::slice::from_raw_parts_mut(FB_BUFFER_PTR, FB_BUFFER_LEN);
+        let backbuffer = &mut BACKBUFFER[..FB_BUFFER_LEN];
+        display::Display { buffer, backbuffer, info: FB_INFO }
+    };
+    crate::desktop::run(&mut display);
 }
 
 fn largest_heap_region_after(boot_info: &BootInfo, kernel_end: u64) -> Option<(u64, u64)> {

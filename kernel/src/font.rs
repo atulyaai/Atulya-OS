@@ -138,3 +138,46 @@ pub fn draw_text(
 pub fn text_width(text: &str, scale: usize) -> usize {
     text.len() * 8 * scale
 }
+
+/// Draw text horizontally centered at `cx` (center X), `y` (top).
+pub fn centered_text(
+    display: &mut Display,
+    cx: usize,
+    y: usize,
+    text: &str,
+    scale: usize,
+    color: Rgb,
+) {
+    let w = text_width(text, scale);
+    let x = cx.saturating_sub(w / 2);
+    draw_text(display, x, y, text, scale, color);
+}
+
+/// Draw text with alpha-dimmed color (alpha 0..256, where 256 = full brightness).
+pub fn draw_text_alpha(
+    display: &mut Display,
+    x: usize,
+    y: usize,
+    text: &str,
+    scale: usize,
+    color: Rgb,
+    alpha: u16,
+) {
+    let dimmed = color.dim(alpha);
+    draw_text(display, x, y, text, scale, dimmed);
+}
+
+/// Draw text horizontally centered with alpha dimming.
+pub fn centered_text_alpha(
+    display: &mut Display,
+    cx: usize,
+    y: usize,
+    text: &str,
+    scale: usize,
+    color: Rgb,
+    alpha: u16,
+) {
+    let w = text_width(text, scale);
+    let x = cx.saturating_sub(w / 2);
+    draw_text_alpha(display, x, y, text, scale, color, alpha);
+}

@@ -8,7 +8,7 @@ name = "atulyaos-runner"
 path = "src/main.rs"
 
 [workspace]
-resolver = "3"
+resolver = "2"
 members = ["kernel"]
 
 [dependencies]

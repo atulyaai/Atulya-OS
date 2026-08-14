@@ -13,5 +13,5 @@
   "disable-redzone": true,
   "max-atomic-width": 64,
   "atomic-cas": true,
-  "features": "-mmx,-sse"
+  "features": "-mmx,+sse,+sse2"
 }

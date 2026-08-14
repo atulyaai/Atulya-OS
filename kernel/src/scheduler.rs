@@ -9,7 +9,7 @@ pub struct Scheduler {
     switch_pending: bool,
 }
 
-static mut SCHEDULER: Option<Scheduler> = None;
+static SCHEDULER: spin::Mutex<Option<Scheduler>> = spin::Mutex::new(None);
 
 impl Scheduler {
     fn new() -> Self {
@@ -111,57 +111,86 @@ impl Scheduler {
     pub fn list_pids(&self) -> Vec<u32> {
         self.processes.iter().map(|p| p.pid()).collect()
     }
+
+    pub fn list_processes(&self) -> Vec<(u32, &'static str, &'static str)> {
+        self.processes.iter().map(|p| {
+            let state_str = match p.state() {
+                ProcessState::Running => "Running",
+                ProcessState::Ready => "Ready",
+                ProcessState::Blocked => "Blocked",
+                ProcessState::Dead => "Dead",
+            };
+            (p.pid(), p.name(), state_str)
+        }).collect()
+    }
+
+    pub fn kill_process(&mut self, pid: u32) -> bool {
+        if let Some(proc) = self.processes.iter_mut().find(|p| p.pid() == pid) {
+            proc.set_state(ProcessState::Dead);
+            true
+        } else {
+            false
+        }
+    }
 }
 
 pub fn init() {
-    unsafe {
-        SCHEDULER = Some(Scheduler::new());
-    }
+    *SCHEDULER.lock() = Some(Scheduler::new());
     crate::serial::serial_write_line("Scheduler initialized.");
 }
 
 pub fn add_process(proc: Process) -> u32 {
-    unsafe { SCHEDULER.as_mut().unwrap().add_process(proc) }
+    SCHEDULER.lock().as_mut().unwrap().add_process(proc)
+}
+
+pub fn spawn_kernel_thread(name: &'static str, entry: extern "C" fn()) -> u32 {
+    let proc = Process::new_kernel_thread(name, entry, 1);
+    add_process(proc)
 }
 
 pub fn current_pid() -> u32 {
-    unsafe { SCHEDULER.as_ref().unwrap().current_pid() }
+    SCHEDULER.lock().as_ref().unwrap().current_pid()
+}
+
+pub fn list_processes() -> Vec<(u32, &'static str, &'static str)> {
+    SCHEDULER.lock().as_ref().map(|s| s.list_processes()).unwrap_or_default()
+}
+
+pub fn kill_process(pid: u32) -> bool {
+    SCHEDULER.lock().as_mut().map(|s| s.kill_process(pid)).unwrap_or(false)
 }
 
 /// Called from timer interrupt. Returns true if context switch is needed.
 pub fn tick() -> bool {
-    unsafe { SCHEDULER.as_mut().unwrap().tick() }
+    SCHEDULER.lock().as_mut().unwrap().tick()
 }
 
 pub fn check_and_schedule() {
-    unsafe {
-        let s = SCHEDULER.as_mut().unwrap();
-        if s.take_switch_pending() {
-            s.pick_next();
-            crate::serial::serial_write_line("Process switch (cooperative)");
-        }
+    let mut guard = SCHEDULER.lock();
+    let s = guard.as_mut().unwrap();
+    if s.take_switch_pending() {
+        s.pick_next();
+        crate::serial::serial_write_line("Process switch (cooperative)");
     }
 }
 
 /// Get a mutable pointer to the current process's context.
 /// Returns null if no current process.
 pub fn current_ctx_mut() -> *mut Context {
-    unsafe {
-        SCHEDULER.as_mut().and_then(|s| {
-            s.current.and_then(|i| s.processes.get_mut(i)).map(|p| p.ctx_mut())
-        }).unwrap_or(core::ptr::null_mut())
-    }
+    SCHEDULER.lock().as_mut().and_then(|s| {
+        s.current.and_then(|i| s.processes.get_mut(i)).map(|p| p.ctx_mut())
+    }).unwrap_or(core::ptr::null_mut())
 }
 
 /// Pick next process and return pointer for context switching.
 pub fn pick_next_and_switch() -> *const Context {
-    unsafe { SCHEDULER.as_mut().unwrap().pick_next() }
+    SCHEDULER.lock().as_mut().unwrap().pick_next()
 }
 
 pub fn process_count() -> usize {
-    unsafe { SCHEDULER.as_ref().unwrap().process_count() }
+    SCHEDULER.lock().as_ref().unwrap().process_count()
 }
 
 pub fn list_pids() -> Vec<u32> {
-    unsafe { SCHEDULER.as_ref().unwrap().list_pids() }
+    SCHEDULER.lock().as_ref().unwrap().list_pids()
 }

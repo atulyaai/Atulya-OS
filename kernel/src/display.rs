@@ -468,6 +468,109 @@ impl<'a> Display<'a> {
         }
     }
 
+    /// Draw a dotted circle outline — every `gap`-th pixel is drawn.
+    pub fn dotted_circle_outline(
+        &mut self,
+        cx: usize,
+        cy: usize,
+        radius: usize,
+        gap: usize,
+        color: Rgb,
+    ) {
+        let gap = gap.max(2);
+        let mut x = radius as isize;
+        let mut y = 0isize;
+        let mut err = 0isize;
+        let mut idx = 0usize;
+
+        while x >= y {
+            if idx % gap == 0 {
+                self.pixel_signed(cx as isize + x, cy as isize + y, color);
+                self.pixel_signed(cx as isize + y, cy as isize + x, color);
+                self.pixel_signed(cx as isize - y, cy as isize + x, color);
+                self.pixel_signed(cx as isize - x, cy as isize + y, color);
+                self.pixel_signed(cx as isize - x, cy as isize - y, color);
+                self.pixel_signed(cx as isize - y, cy as isize - x, color);
+                self.pixel_signed(cx as isize + y, cy as isize - x, color);
+                self.pixel_signed(cx as isize + x, cy as isize - y, color);
+            }
+            idx += 1;
+            y += 1;
+            if err <= 0 {
+                err += 2 * y + 1;
+            } else {
+                x -= 1;
+                err -= 2 * x - 2 * y + 1;
+            }
+        }
+    }
+
+    /// Draw radial tick marks on a circle arc.
+    ///
+    /// `n_ticks` tick marks are evenly spaced around the circle at `radius`.
+    /// Each tick extends from `radius - inner_len` to `radius + outer_len`.
+    /// `rotation_deg` rotates all ticks (in degrees, 0..360).
+    /// Uses integer-approximation trig from `crate::math`.
+    pub fn draw_arc_ticks(
+        &mut self,
+        cx: usize,
+        cy: usize,
+        radius: usize,
+        n_ticks: usize,
+        inner_len: usize,
+        outer_len: usize,
+        rotation_deg: i32,
+        color: Rgb,
+    ) {
+        if n_ticks == 0 {
+            return;
+        }
+        for i in 0..n_ticks {
+            let angle = rotation_deg + (i as i32 * 360 / n_ticks as i32);
+            let c = crate::math::cosish(angle);
+            let s = crate::math::sinish(angle);
+            let inner = radius.saturating_sub(inner_len) as isize;
+            let outer = (radius + outer_len) as isize;
+            let x0 = cx as isize + c * inner / 1024;
+            let y0 = cy as isize + s * inner / 1024;
+            let x1 = cx as isize + c * outer / 1024;
+            let y1 = cy as isize + s * outer / 1024;
+            // Use signed line drawing
+            if x0 >= 0 && y0 >= 0 && x1 >= 0 && y1 >= 0 {
+                self.draw_line(x0 as usize, y0 as usize, x1 as usize, y1 as usize, color);
+            }
+        }
+    }
+
+    /// Fast horizontal line fill (used for filled shapes and beam effects).
+    pub fn hline(&mut self, x0: usize, x1: usize, y: usize, color: Rgb) {
+        if y >= self.info.height {
+            return;
+        }
+        let start = x0.min(self.info.width);
+        let end = x1.min(self.info.width);
+        for x in start..end {
+            self.pixel(x, y, color);
+        }
+    }
+
+    /// Additive pixel blend — adds color values (clamped to 255).
+    pub fn pixel_add(&mut self, x: usize, y: usize, color: Rgb) {
+        if x >= self.info.width || y >= self.info.height {
+            return;
+        }
+        let cur = self.read_pixel(x, y);
+        self.pixel(
+            x,
+            y,
+            Rgb::new(
+                cur.r.saturating_add(color.r),
+                cur.g.saturating_add(color.g),
+                cur.b.saturating_add(color.b),
+            ),
+        );
+    }
+
     /// Draw a line using Bresenham's line algorithm.
     pub fn draw_line(&mut self, x0: usize, y0: usize, x1: usize, y1: usize, color: Rgb) {
         let mut x0 = x0 as isize;
