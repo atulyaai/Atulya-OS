@@ -46,9 +46,9 @@ pub fn init() {
         wrmsr(MSR_EFER, efer | 1);
 
         // 2. Configure IA32_STAR
-        // Bits 47:32 -> Kernel CS (0x08) and Kernel SS (0x10)
-        // Bits 63:48 -> User CS (0x20) and User SS (0x18)
-        let star = ((0x0018_0008u64) << 32) | (0x0020_0008u64 << 48);
+        // Bits 47:32 -> Kernel CS (0x08)
+        // Bits 63:48 -> User CS base (0x18)
+        let star = (0x0008u64 << 32) | (0x0018u64 << 48);
         wrmsr(MSR_STAR, star);
 
         // 3. Set LSTAR to our naked assembly syscall handler entry point
