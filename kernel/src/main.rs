@@ -37,6 +37,9 @@ pub mod power;
 pub mod voice;
 pub mod game;
 pub mod vault;
+pub mod posix;
+pub mod gguf;
+pub mod security;
 
 use bootloader_api::{config::Mapping, entry_point, BootInfo, BootloaderConfig};
 use core::panic::PanicInfo;

@@ -10,10 +10,14 @@ pub fn serial_init() {
     }
 }
 
-pub fn serial_write_line(text: &str) {
+pub fn serial_write_str(text: &str) {
     for byte in text.bytes() {
         serial_write_byte(byte);
     }
+}
+
+pub fn serial_write_line(text: &str) {
+    serial_write_str(text);
     serial_write_byte(b'\r');
     serial_write_byte(b'\n');
 }
