@@ -26,6 +26,8 @@ mod gpu;
 mod login;
 mod sound;
 mod pci;
+mod gdt;
+mod ai;
 
 use bootloader_api::{config::Mapping, entry_point, BootInfo, BootloaderConfig};
 use core::panic::PanicInfo;
@@ -93,6 +95,8 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
 
     serial::serial_write_line("About to init scheduler...");
     scheduler::init();
+
+    ai::init();
 
     unsafe {
         FB_BUFFER_PTR = display.buffer.as_mut_ptr();

@@ -405,9 +405,45 @@ impl Terminal {
 
         if cmd_str == "help" {
             self.write_line("Commands: ls, cat, mkdir, rm, echo, pwd, cd,");
-            self.write_line("          pci, ifconfig, ping, ps, wasm, disk,");
-            self.write_line("          sound, skills, net, neofetch,");
-            self.write_line("          clear, theme, joke, scan, matrix");
+            self.write_line("          ask <intent>, memory, pci, ifconfig,");
+            self.write_line("          ping, ps, wasm, disk, sound, skills,");
+            self.write_line("          net, neofetch, clear, theme, scan");
+        } else if cmd_str.starts_with("ask ") {
+            let query = &cmd_str[4..];
+            let res = crate::ai::AI_ENGINE.lock().parse_intent(query);
+            self.write_str("✦ [AI INTENT: ");
+            self.write_str(res.intent_name);
+            self.write_line("]");
+            self.write_str("  ");
+            self.write_line(&res.description);
+            match res.action {
+                crate::ai::IntentAction::SyncDisk => {
+                    let _ = self.fs.sync_to_disk();
+                    self.write_line("  [OK] System state synchronized to ATA hard disk.");
+                }
+                crate::ai::IntentAction::ChangeTheme => {
+                    *theme_idx = (*theme_idx + 1) % 4;
+                    self.write_line("  [OK] Spectrum theme updated.");
+                }
+                crate::ai::IntentAction::PlayChime => {
+                    crate::sound::Sound::play_boot_chime();
+                }
+                _ => {}
+            }
+        } else if cmd_str == "memory" {
+            self.write_line("── Context Vector Graph (Memory Bus) ──");
+            let ai = crate::ai::AI_ENGINE.lock();
+            for node in &ai.memory_nodes {
+                self.write_str("  [#");
+                let mut nbuf = [0u8; 2];
+                nbuf[0] = b'0' + node.id as u8;
+                self.write_str(core::str::from_utf8(&nbuf[..1]).unwrap_or("?"));
+                self.write_str("] ");
+                self.write_str(node.title);
+                self.write_str(" (");
+                self.write_str(node.category);
+                self.write_line(")");
+            }
         } else if cmd_str == "disk" {
             self.write_line("── ATA / IDE Persistent Block Device ──");
             let disk = crate::fs::ata::DISK.lock();
