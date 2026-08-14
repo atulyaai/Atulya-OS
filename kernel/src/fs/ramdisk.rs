@@ -165,7 +165,47 @@ impl RamFs {
             return Ok(0);
         }
 
-        crate::serial::serial_write_line("VFS: Valid ATULYA_FS_V1 superblock detected on ATA disk.");
+        let file_count = u32::from_le_bytes([sector[12], sector[13], sector[14], sector[15]]) as usize;
+        let mut restored_files = BTreeMap::new();
+        let mut current_lba = 2049;
+
+        for _ in 0..file_count {
+            let mut entry_sec = [0u8; 512];
+            disk.read_sector(current_lba, &mut entry_sec)?;
+            current_lba += 1;
+
+            let plen = entry_sec[0] as usize;
+            if plen == 0 || plen > 128 {
+                continue;
+            }
+            let is_dir = entry_sec[1] != 0;
+            let file_size = u32::from_le_bytes([entry_sec[2], entry_sec[3], entry_sec[4], entry_sec[5]]) as usize;
+            
+            let path = match core::str::from_utf8(&entry_sec[8..8 + plen]) {
+                Ok(s) => String::from(s),
+                Err(_) => continue,
+            };
+
+            let mut data = Vec::with_capacity(file_size);
+            let mut d_offset = 0;
+            while d_offset < file_size {
+                let mut data_sec = [0u8; 512];
+                disk.read_sector(current_lba, &mut data_sec)?;
+                current_lba += 1;
+
+                let chunk = (file_size - d_offset).min(512);
+                data.extend_from_slice(&data_sec[..chunk]);
+                d_offset += chunk;
+            }
+
+            restored_files.insert(path, Inode { data, is_dir });
+        }
+
+        if !restored_files.is_empty() {
+            self.files = restored_files;
+            crate::serial::serial_write_line("VFS: Successfully restored filesystem from ATA disk.");
+        }
+
         Ok(self.files.len())
     }
 
