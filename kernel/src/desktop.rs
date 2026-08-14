@@ -780,6 +780,8 @@ struct Window {
     h: usize,
     title: &'static str,
     active: bool,
+    anim_scale: u16, // 0..256 smooth easing scale
+    is_open: bool,
 }
 
 // ── Desktop entry point ─────────────────────────────────────────────
@@ -799,15 +801,15 @@ pub fn run(display: &mut Display) -> ! {
     let mut drag_window: Option<(isize, isize, isize, isize)> = None;
 
     let mut windows = alloc::vec![
-        Window { x: 200, y: 120, w: 560, h: 340, title: "Terminal", active: true },
-        Window { x: 240, y: 150, w: 500, h: 320, title: "Web Browser", active: false },
-        Window { x: -9999, y: -9999, w: 460, h: 280, title: "Network Mesh", active: false },
-        Window { x: -9999, y: -9999, w: 520, h: 320, title: "Code Editor", active: false },
-        Window { x: -9999, y: -9999, w: 440, h: 280, title: "File Manager", active: false },
-        Window { x: -9999, y: -9999, w: 480, h: 300, title: "System Analytics", active: false },
-        Window { x: -9999, y: -9999, w: 400, h: 240, title: "Media Player", active: false },
-        Window { x: -9999, y: -9999, w: 420, h: 260, title: "3D Container", active: false },
-        Window { x: -9999, y: -9999, w: 440, h: 270, title: "Security Shield", active: false },
+        Window { x: 200, y: 120, w: 560, h: 340, title: "Terminal", active: true, anim_scale: 256, is_open: true },
+        Window { x: 240, y: 150, w: 500, h: 320, title: "Web Browser", active: false, anim_scale: 256, is_open: true },
+        Window { x: 280, y: 170, w: 460, h: 280, title: "Network Mesh", active: false, anim_scale: 0, is_open: false },
+        Window { x: 300, y: 180, w: 520, h: 320, title: "Code Editor", active: false, anim_scale: 0, is_open: false },
+        Window { x: 220, y: 130, w: 440, h: 280, title: "File Manager", active: false, anim_scale: 0, is_open: false },
+        Window { x: 260, y: 160, w: 480, h: 300, title: "System Analytics", active: false, anim_scale: 0, is_open: false },
+        Window { x: 320, y: 190, w: 400, h: 240, title: "Media Player", active: false, anim_scale: 0, is_open: false },
+        Window { x: 340, y: 200, w: 420, h: 260, title: "3D Container", active: false, anim_scale: 0, is_open: false },
+        Window { x: 360, y: 210, w: 440, h: 270, title: "Security Shield", active: false, anim_scale: 0, is_open: false },
     ];
 
     let mut focused_win: usize = 0;
@@ -957,8 +959,28 @@ pub fn run(display: &mut Display) -> ! {
             crate::font::draw_char(display, clk_x + i * 8, clk_y, ch, 1, theme.accent);
         }
 
+        // Animate window easing transitions (200ms cubic scale & opacity)
+        for win in windows.iter_mut() {
+            if win.is_open && win.anim_scale < 256 {
+                win.anim_scale = (win.anim_scale + 32).min(256);
+            } else if !win.is_open && win.anim_scale > 0 {
+                win.anim_scale = win.anim_scale.saturating_sub(32);
+            }
+        }
+
         // Draw windows (back to front)
         for (i, win) in windows.iter().enumerate() {
+            if win.anim_scale == 0 {
+                continue;
+            }
+            let s = win.anim_scale as usize;
+            let rw = (win.w * s) / 256;
+            let rh = (win.h * s) / 256;
+            let rx = (win.x + ((win.w - rw) / 2) as isize).max(0) as usize;
+            let ry = (win.y + ((win.h - rh) / 2) as isize).max(0) as usize;
+
+            let alpha = (230 * win.anim_scale / 256) as u16;
+
             let border_color = if i == focused_win || win.active {
                 theme.win_active
             } else {
@@ -967,51 +989,55 @@ pub fn run(display: &mut Display) -> ! {
 
             // Window shadow
             display.rect_rounded_alpha(
-                win.x as usize + 4,
-                win.y as usize + 4,
-                win.w,
-                win.h,
+                rx + 4,
+                ry + 4,
+                rw,
+                rh,
                 8,
                 Rgb::new(0, 0, 0),
-                60,
+                (60 * win.anim_scale / 256) as u16,
             );
 
             // Window body
             display.rect_rounded_alpha(
-                win.x as usize,
-                win.y as usize,
-                win.w,
-                win.h,
+                rx,
+                ry,
+                rw,
+                rh,
                 8,
                 Rgb::new(16, 16, 20),
-                230,
+                alpha,
             );
-            display.rect_rounded_outline(win.x as usize, win.y as usize, win.w, win.h, 8, border_color);
+            display.rect_rounded_outline(rx, ry, rw, rh, 8, border_color.dim(win.anim_scale));
 
             // Title bar
-            display.rect_rounded_alpha(
-                win.x as usize,
-                win.y as usize,
-                win.w,
-                28,
-                6,
-                Rgb::new(24, 24, 30),
-                240,
-            );
+            if rh >= 28 {
+                display.rect_rounded_alpha(
+                    rx,
+                    ry,
+                    rw,
+                    28,
+                    6,
+                    Rgb::new(24, 24, 30),
+                    (240 * win.anim_scale / 256) as u16,
+                );
 
-            // Title text
-            for (ci, ch) in win.title.bytes().enumerate() {
-                let tx = win.x as usize + 30 + ci * 8;
-                if tx < win.x as usize + win.w {
-                    crate::font::draw_char(display, tx, win.y as usize + 8, ch, 1, theme.text);
+                // Title text
+                for (ci, ch) in win.title.bytes().enumerate() {
+                    let tx = rx + 30 + ci * 8;
+                    if tx + 8 < rx + rw {
+                        crate::font::draw_char(display, tx, ry + 8, ch, 1, theme.text.dim(win.anim_scale));
+                    }
+                }
+
+                // Close button (red circle)
+                if rw >= 24 {
+                    let cx_btn = rx + rw - 18;
+                    let cy_btn = ry + 14;
+                    display.circle_filled(cx_btn, cy_btn, 6, Rgb::new(255, 80, 80).dim(win.anim_scale));
+                    display.circle_outline(cx_btn, cy_btn, 6, Rgb::new(200, 50, 50).dim(win.anim_scale));
                 }
             }
-
-            // Close button (red circle)
-            let cx_btn = win.x as usize + win.w - 18;
-            let cy_btn = win.y as usize + 14;
-            display.circle_filled(cx_btn, cy_btn, 6, Rgb::new(255, 80, 80));
-            display.circle_outline(cx_btn, cy_btn, 6, Rgb::new(200, 50, 50));
 
             // Content area
             if win.title == "Terminal" && i == focused_win {
@@ -1239,6 +1265,7 @@ pub fn run(display: &mut Display) -> ! {
                 let mut close_idx: Option<usize> = None;
                 {
                     for (i, win) in windows.iter().enumerate() {
+                        if !win.is_open || win.anim_scale < 180 { continue; }
                         let cx_btn = win.x as usize + win.w - 18;
                         let cy_btn = win.y as usize + 14;
                         let dx = mx as isize - cx_btn as isize;
@@ -1249,8 +1276,7 @@ pub fn run(display: &mut Display) -> ! {
                     }
                 }
                 if let Some(i) = close_idx {
-                    windows[i].x = -9999;
-                    windows[i].y = -9999;
+                    windows[i].is_open = false;
                 }
 
                 // Start dragging on title bar
@@ -1258,7 +1284,8 @@ pub fn run(display: &mut Display) -> ! {
                     let mut drag_info: Option<(usize, isize, isize)> = None;
                     {
                         for (i, win) in windows.iter().enumerate().rev() {
-                            if mx >= win.x
+                            if win.is_open && win.anim_scale >= 180
+                                && mx >= win.x
                                 && mx < win.x + win.w as isize
                                 && my >= win.y
                                 && my < win.y + 28
@@ -1306,9 +1333,9 @@ pub fn run(display: &mut Display) -> ! {
                         if mx >= ix && mx <= ix + icon_w_i {
                             // Focus or restore window
                             if i < windows.len() {
-                                if windows[i].x < -1000 {
-                                    windows[i].x = 180 + i as isize * 30;
-                                    windows[i].y = 80 + i as isize * 20;
+                                windows[i].is_open = true;
+                                if windows[i].anim_scale == 0 {
+                                    windows[i].anim_scale = 32;
                                 }
                                 windows[focused_win].active = false;
                                 windows[i].active = true;
