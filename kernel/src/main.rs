@@ -30,6 +30,7 @@ mod gdt;
 mod ai;
 mod syscall;
 pub mod viewer;
+pub mod pkg;
 
 use bootloader_api::{config::Mapping, entry_point, BootInfo, BootloaderConfig};
 use core::panic::PanicInfo;

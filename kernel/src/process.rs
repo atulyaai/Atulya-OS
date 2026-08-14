@@ -25,6 +25,7 @@ pub struct Context {
     pub r15: u64,       // offset 14*8
     pub rflags: u64,    // offset 15*8
     pub rsp: u64,       // offset 16*8 — must point at interrupt frame for iretq
+    pub cr3: u64,       // offset 17*8 (0x88) — hardware PML4 page table root
 }
 
 impl Context {
@@ -36,6 +37,7 @@ impl Context {
             r8: 0, r9: 0, r10: 0, r11: 0,
             r12: 0, r13: 0, r14: 0, r15: 0,
             rsp: 0, // set below after stack allocation
+            cr3: 0,
         }
     }
 
@@ -58,6 +60,7 @@ impl Context {
             r8: 0, r9: 0, r10: 0, r11: 0,
             r12: 0, r13: 0, r14: 0, r15: 0,
             rsp: rsp - 40, // point at RIP (start of 5-value iretq frame)
+            cr3: 0,
         }
     }
 
@@ -81,6 +84,7 @@ impl Context {
             r8: 0, r9: 0, r10: 0, r11: 0,
             r12: 0, r13: 0, r14: 0, r15: 0,
             rsp: rsp - 40, // point at RIP (start of 5-value iretq frame)
+            cr3: 0,
         }
     }
 }
@@ -174,7 +178,8 @@ impl Process {
         }
 
         let user_stack_top = user_stack_base as usize + STACK_SIZE;
-        let ctx = Context::new_user_thread(entry, user_stack_top, kernel_stack_base, STACK_SIZE);
+        let mut ctx = Context::new_user_thread(entry, user_stack_top, kernel_stack_base, STACK_SIZE);
+        ctx.cr3 = unsafe { crate::memory::create_user_pml4() };
 
         Process {
             pid,
@@ -229,6 +234,13 @@ pub unsafe extern "C" fn restore_context(ctx: *const Context) {
     //   - If Ring 0 (CS=0x08): pops [RIP, CS, RFLAGS] and resumes in kernel space.
     //   - If Ring 3 (CS=0x23): pops [RIP, CS, RFLAGS, RSP, SS] and drops to user space.
     core::arch::naked_asm!(
+        // Check and reload hardware CR3 if non-zero
+        "mov rax, [rdi + 0x88]",
+        "test rax, rax",
+        "jz 1f",
+        "mov cr3, rax",
+        "1:",
+
         // Load RSP pointing directly at the iretq frame
         "mov rsp, [rdi + 0x80]",
 

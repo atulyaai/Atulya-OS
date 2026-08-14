@@ -839,6 +839,33 @@ impl Terminal {
                 }
                 Err(_) => self.write_line("ls: cannot access directory"),
             }
+        } else if cmd_str == "pkg" || cmd_str == "pkg list" {
+            self.write_line("── Atulya Sovereign WASM Package Registry ──");
+            let pkgs = crate::pkg::PackageManager::list(&self.fs);
+            if pkgs.is_empty() {
+                self.write_line("  No packages installed. Run 'pkg install <name>' to install.");
+            } else {
+                for p in &pkgs {
+                    self.write_str("  📦 ");
+                    self.write_str(&p.name);
+                    self.write_str(" [");
+                    self.write_str(p.category);
+                    self.write_str("] - ");
+                    self.write_line(p.status);
+                }
+            }
+        } else if cmd_str.starts_with("pkg install ") {
+            let name = cmd_str[12..].trim();
+            match crate::pkg::PackageManager::install(name, &mut self.fs) {
+                Ok(msg) => self.write_line(&msg),
+                Err(err) => self.write_line(err),
+            }
+        } else if cmd_str.starts_with("pkg remove ") {
+            let name = cmd_str[11..].trim();
+            match crate::pkg::PackageManager::remove(name, &mut self.fs) {
+                Ok(msg) => self.write_line(&msg),
+                Err(err) => self.write_line(err),
+            }
         } else if cmd_str.starts_with("cat ") || cmd_str.starts_with("view ") || cmd_str.starts_with("open ") {
             let prefix_len = if cmd_str.starts_with("cat ") { 4 } else { 5 };
             let file = cmd_str.get(prefix_len..).unwrap_or("").trim();
@@ -947,7 +974,7 @@ pub fn run(display: &mut Display) -> ! {
     let mut scan_active: usize = 0;
     let mut matrix_active: usize = 0;
     let mut mouse_was_pressed = false;
-    let mut drag_window: Option<(isize, isize, isize, isize)> = None;
+    let mut drag_window: Option<(isize, isize, isize, u8)> = None;
 
     // Spotlight global command & intent launcher state
     let mut spotlight_active: bool = false;
@@ -1584,28 +1611,39 @@ pub fn run(display: &mut Display) -> ! {
                     windows[i].is_open = false;
                 }
 
-                // Start dragging on title bar
+                // Start dragging on title bar or resizing on bottom-right corner
                 if mouse_pressed && !mouse_was_pressed {
-                    let mut drag_info: Option<(usize, isize, isize)> = None;
+                    let mut drag_info: Option<(usize, isize, isize, u8)> = None;
                     {
                         for (i, win) in windows.iter().enumerate().rev() {
-                            if win.is_open && win.anim_scale >= 180
-                                && mx >= win.x
-                                && mx < win.x + win.w as isize
-                                && my >= win.y
-                                && my < win.y + 28
-                            {
-                                drag_info = Some((i, mx - win.x, my - win.y));
-                                break;
+                            if win.is_open && win.anim_scale >= 180 {
+                                // Check bottom-right resize corner (18x18px)
+                                if mx >= win.x + win.w as isize - 18
+                                    && mx <= win.x + win.w as isize + 6
+                                    && my >= win.y + win.h as isize - 18
+                                    && my <= win.y + win.h as isize + 6
+                                {
+                                    drag_info = Some((i, mx, my, 1)); // Mode 1: Resize
+                                    break;
+                                }
+                                // Check title bar drag
+                                else if mx >= win.x
+                                    && mx < win.x + win.w as isize
+                                    && my >= win.y
+                                    && my < win.y + 28
+                                {
+                                    drag_info = Some((i, mx - win.x, my - win.y, 0)); // Mode 0: Move
+                                    break;
+                                }
                             }
                         }
                     }
-                    if let Some((i, ox, oy)) = drag_info {
+                    if let Some((i, ox, oy, mode)) = drag_info {
                         // Move window to end of vec for z-ordering
                         let win = windows.remove(i);
                         windows.push(win);
                         let new_idx = windows.len() - 1;
-                        drag_window = Some((new_idx as isize, ox, oy, 0));
+                        drag_window = Some((new_idx as isize, ox, oy, mode));
                         if !windows[new_idx].active {
                             windows[focused_win].active = false;
                             focused_win = new_idx;
@@ -1614,14 +1652,52 @@ pub fn run(display: &mut Display) -> ! {
                     }
                 }
 
-                // Dragging
+                // Dragging & Resizing
                 if mouse_pressed {
-                    if let Some((idx, ox, oy, _)) = drag_window {
+                    if let Some((idx, ox, oy, mode)) = drag_window {
                         let idx = idx as usize;
-                        windows[idx].x = mx - ox;
-                        windows[idx].y = my - oy;
+                        if mode == 0 {
+                            // Move window
+                            windows[idx].x = mx - ox;
+                            windows[idx].y = my - oy;
+                        } else if mode == 1 {
+                            // Resize window
+                            let new_w = (mx - windows[idx].x).max(280) as usize;
+                            let new_h = (my - windows[idx].y).max(180) as usize;
+                            windows[idx].w = new_w.min(w - 60);
+                            windows[idx].h = new_h.min(h - 80);
+                        }
                     }
-                } else {
+                } else if mouse_was_pressed {
+                    // Mouse Released: Check Snap Tiling on drop
+                    if let Some((idx, _, _, mode)) = drag_window {
+                        let idx = idx as usize;
+                        if mode == 0 {
+                            let side_margin = 180usize;
+                            let right_margin = 230usize;
+                            let avail_w = w.saturating_sub(side_margin + right_margin + 20);
+
+                            if mx <= 35 {
+                                // Snap Left Half
+                                windows[idx].x = side_margin as isize + 10;
+                                windows[idx].y = 20;
+                                windows[idx].w = avail_w / 2;
+                                windows[idx].h = h.saturating_sub(90);
+                            } else if mx >= (w as isize - 45) {
+                                // Snap Right Half
+                                windows[idx].x = (side_margin + avail_w / 2 + 20) as isize;
+                                windows[idx].y = 20;
+                                windows[idx].w = avail_w / 2;
+                                windows[idx].h = h.saturating_sub(90);
+                            } else if my <= 28 {
+                                // Snap Maximize
+                                windows[idx].x = side_margin as isize + 10;
+                                windows[idx].y = 20;
+                                windows[idx].w = avail_w;
+                                windows[idx].h = h.saturating_sub(90);
+                            }
+                        }
+                    }
                     drag_window = None;
                 }
 

@@ -89,3 +89,25 @@ pub fn init_heap(heap_phys_start: usize, heap_size: usize) {
         }
     }
 }
+
+/// Create an isolated 4-level PML4 page table for a user-mode process.
+/// Shares kernel-space higher-half mappings (entries 256..512) while isolating user space (entries 0..255).
+pub unsafe fn create_user_pml4() -> u64 {
+    let layout = core::alloc::Layout::from_size_align(4096, 4096).unwrap();
+    let pml4_ptr = alloc::alloc::alloc_zeroed(layout) as *mut PageTable;
+    if pml4_ptr.is_null() {
+        return 0;
+    }
+
+    // Read active kernel PML4 frame
+    let (kernel_pml4_frame, _) = Cr3::read();
+    let kernel_pml4 = &*(kernel_pml4_frame.start_address().as_u64() as *const PageTable);
+
+    // Clone higher-half kernel entries (256..512) for driver & interrupt access
+    let pml4 = &mut *pml4_ptr;
+    for i in 256..512 {
+        pml4[i] = kernel_pml4[i].clone();
+    }
+
+    pml4_ptr as u64
+}
