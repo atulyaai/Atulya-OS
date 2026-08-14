@@ -1,82 +1,160 @@
-# AtulyaOS
+<div align="center">
 
-AtulyaOS is being built first as a tiny real OS milestone:
+![Atulya OS Banner](assets/images/banner.png)
 
-```text
-Bootloader
-Kernel
-Screen
-ATULYAOS
+# 🌌 ATULYA OS
+### *The Next-Generation Intent Operating System*
+
+[![Rust 2024](https://img.shields.io/badge/Rust-2024_Edition-orange?logo=rust&style=for-the-badge)](https://www.rust-lang.org/)
+[![Target](https://img.shields.io/badge/Target-x86__64_Freestanding-blue?style=for-the-badge)](https://github.com/atulyaai/Atulya-OS)
+[![Display](https://img.shields.io/badge/Display-1080p_TrueColor-00e5ff?style=for-the-badge)](https://github.com/atulyaai/Atulya-OS)
+[![License](https://img.shields.io/badge/License-MIT%2FApache-success?style=for-the-badge)](LICENSE)
+
+*A freestanding, memory-safe, multi-layered x86_64 operating system built in pure Rust (`no_std`). Fuses macOS floating glass aesthetics, Linux command power, Windows window compositing, and an autonomous AI core.*
+
+---
+
+</div>
+
+## 📖 About Atulya OS
+
+**Atulya OS** is an autonomous "Intent Computer" designed from the ground up to unify AI autonomy with bare-metal operating system architecture. Built from scratch without existing OS kernels, it runs in **x86_64 Long Mode** on a double-buffered 1080p TrueColor linear framebuffer.
+
+### 🌟 Core Architectural Pillars
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                 ATULYA AI INTENT & ORB UI                  │
+│       (Reactive Waveform, Biometric Gate, Holographic HUD)  │
+├─────────────────────────────────────────────────────────────┤
+│                 AUTONOMOUS WASM SKILLS ENGINE               │
+│     (Memory Graph, Voice Engine, Vision Stream, Sandboxing) │
+├─────────────────────────────────────────────────────────────┤
+│               DESKTOP & GLASS WINDOW COMPOSITOR             │
+│        (9-App Floating Dock, Draggable Windows, Terminal)   │
+├─────────────────────────────────────────────────────────────┤
+│                    RUST NO_STD KERNEL                       │
+│    (Preemptive Scheduler, Memory Paging, VFS, VirtIO Net)   │
+├─────────────────────────────────────────────────────────────┤
+│                     HARDWARE / QEMU                         │
+│       (x86_64 Long Mode, Framebuffer, PIT, 8259 PIC, PCI)   │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-The long-term direction is Rust-first:
+1. **Bare-Metal Rust Safety**: 100% written in `no_std` Rust with SIMD (SSE/SSE2) enabled, spinlock-safe scheduling, and zero undefined behavior.
+2. **AAA 60 FPS Cyberpunk Boot Sequence**: Vector orbital HUD dials, 48 converging quantum particles, 3D anti-aliased holographic hero orb, and razor-thin plasma progress bar.
+3. **Holographic Biometric Login Gate**: Hexagonal fingerprint scanner with real-time biometric touch detection and live clearance telemetry (`AXON-7`).
+4. **Panoramic Desktop Compositor**:
+   - Top banner greeting with animated real-time audio visualizer waveform.
+   - 9-app floating frosted glass dock (`Terminal`, `Web`, `Mesh`, `Code`, `File`, `Stats`, `Media`, `3D`, `Security`).
+   - Draggable, focusable, and closeable glass window manager.
+5. **PC Speaker Sound Synthesizer**: Direct hardware tone generator via PIT Channel 2 (Ports `0x43`, `0x42`, `0x61`) playing signature rising cyberpunk harmonic boot chimes and UI clicks.
+6. **WebAssembly Skills Runtime**: Sandboxed bytecode execution engine (`\0asm` v1) with stack machine evaluation.
+7. **PCI Bus Scanner & Network Stack**: Configuration space enumerator with VirtIO-Net adapter and packet telemetry.
+8. **Hierarchical RAMDisk / VFS**: Unix-like filesystem (`/user/atul`, `/system`, `/apps`, `/home`).
 
-```text
-Bootloader  -> minimal assembly / Rust bootloader support
-Kernel      -> Rust
-Runtime     -> Rust
-Skills      -> WASM
-Orb/UI      -> TypeScript/WebGL later
-```
+---
 
-## Current Milestone
+## 🖼️ Visual Storyboard & Architecture
 
-Boot a Rust kernel through a bootloader-provided framebuffer and draw pixels:
+<div align="center">
 
-```text
-ATULYAOS
-Animated orb
-Framebuffer graphics mode
-```
+![Atulya OS Storyboard](assets/images/boot_storyboard.png)
 
-## Tooling Needed
+</div>
 
-- Rust toolchain through `rustup`
-- QEMU for first boot tests
-- Later: VMware image export
+---
 
-## Build Shape
+## ⚡ Interactive Terminal Commands
 
-This project starts from a freestanding Rust kernel. It now uses a real
-framebuffer path instead of VGA text mode, so the kernel can draw pixels for
-boot visuals, images, panels, and later windows.
+Once booted into the desktop, open the **Terminal** window to run native commands:
 
-## Boot Splash (Storyboard Frames)
+| Command | Description |
+| :--- | :--- |
+| `help` | Display list of all kernel and userland commands |
+| `pci` | Enumerate all discovered hardware devices on the PCI bus |
+| `ps` | List live process table (PIDs, task names, and scheduling states) |
+| `wasm` | Execute `/apps/quantum_skill.wasm` bytecode inside the sandbox |
+| `ifconfig` | Inspect network interfaces (`lo0`, `eth0`) and MAC/IP settings |
+| `ping <ip>` | Test network packet routing and ICMP round-trip latency |
+| `sound` | Trigger the PC Speaker cyber harmonic synthesizer chime |
+| `skills` | Inspect live AI subsystems (Memory, Voice, Vision, Skills, Security) |
+| `ls [path]` | List files and directories in the VFS |
+| `cat <file>` | Display contents of a file (e.g. `cat /user/atul/welcome.txt`) |
+| `mkdir <dir>` | Create a new directory in the RAMDisk |
+| `echo <text>` | Print text to terminal or redirect to files |
+| `theme` | Cycle through 4 color themes (*Cyberpunk Cyan, Matrix Green, Obsidian, Retro Gold*) |
+| `scan` | Run real-time circular radar sweep diagnostics |
+| `matrix` | Launch holographic green digital rain stream |
+| `neofetch` | Print kernel system specs and hardware monitor |
+| `clear` | Clear the terminal display buffer |
 
-The boot animation is **Choice 1 from the boot-graphics options**: the
-bootloader blits 12 pre-rendered full-screen panels. This is the same
-approach Apple / Windows / most desktop OSes use because it is fast,
-predictable, and visually identical every time.
+---
 
-The storyboard image itself is **procedurally generated** by
-`scripts/generate_boot_storyboard.py` (PIL + numpy), so the same
-panels come out pixel-identical on every run - no AI variance, no
-hand-painting, no stale assets.
+## 🚀 Getting Started & Running
 
-Rebuild the boot art end-to-end:
+### Prerequisites
+- **Rust Toolchain**: `nightly-x86_64-pc-windows-msvc` (or Linux equivalent) with `rust-src`
+- **QEMU**: `qemu-system-x86_64`
 
+### Quick Launch
+
+In PowerShell:
 ```powershell
-python "F:\Atulya OS\scripts\generate_boot_storyboard.py"
-python "F:\Atulya OS\scripts\convert_boot_frames.py"
+cd "Atulya OS"
+
+# Build the complete OS image
+cargo build
+
+# Launch in QEMU with hardware acceleration
+powershell -ExecutionPolicy Bypass -File .\scripts\run-qemu.ps1
 ```
 
-1. `generate_boot_storyboard.py`  -> `assets/images/boot_storyboard.png` (4x3 grid)
-2. `convert_boot_frames.py`       -> `assets/boot_frames/frame_NN.rgb` (12 raw panels)
-3. Rebuild kernel                 -> `boot_splash.rs` blits the panels to the framebuffer
+---
 
-To retune the look (colors, orb size, HUD positions, wordmark), edit the
-constants at the top of `scripts/generate_boot_storyboard.py` and rerun
-both scripts. The grid layout (4 cols x 3 rows, 58% top / 42% bottom)
-must stay in sync with `convert_boot_frames.py` (`BOTTOM_FRAC`).
+## 📁 Repository Structure
 
-For the **desktop** (post-boot), the long-term plan is Choice 3
-(real-time GPU/shader renderer with bloom + particles) - that lives
-in `kernel/src/desktop.rs` and is a separate workstream from the
-boot splash.
-
-## Commands
-
-```powershell
-powershell -ExecutionPolicy Bypass -File "F:\Atulya OS\scripts\build.ps1"
-powershell -ExecutionPolicy Bypass -File "F:\Atulya OS\scripts\run-qemu.ps1"
+```text
+Atulya OS/
+├── assets/
+│   ├── images/
+│   │   ├── banner.png           # Repository widescreen hero banner
+│   │   ├── atulyaos_logo.png    # 1024x1024 master holographic orb logo
+│   │   └── boot_storyboard.png  # Concept storyboard & panoramic view
+│   └── boot/
+│       ├── orb_hero.png         # Extracted 280x280 anti-aliased hero orb
+│       └── orb_hero.rgba        # Embedded raw 32-bit RGBA sprite
+├── docs/                        # Technical specifications & architecture
+│   ├── architecture.md          # Multi-layer system design
+│   ├── implementation-plan.md   # Roadmap and feature milestone tracking
+│   └── input_system.md          # PS/2 hardware protocol specs
+├── kernel/                      # Main OS Kernel (no_std Rust)
+│   └── src/
+│       ├── boot/awakening.rs    # 60 FPS AAA Cyberpunk boot animation
+│       ├── desktop.rs           # Glass window compositor, dock, & terminal
+│       ├── login.rs             # Biometric authorization gate (AXON-7)
+│       ├── sound.rs             # PC Speaker PIT Channel 2 audio driver
+│       ├── pci.rs               # PCI bus scanner & device enumerator
+│       ├── wasm/runtime.rs      # WebAssembly bytecode execution sandbox
+│       ├── interrupts.rs        # IDT, 8259 PIC, timer, keyboard/mouse IRQs
+│       ├── scheduler.rs         # Preemptive multitasking process scheduler
+│       ├── process.rs           # Process control blocks & context switching
+│       ├── fs/ramdisk.rs        # Hierarchical Unix RAMDisk / VFS
+│       ├── display.rs           # 1080p linear double-buffered graphics engine
+│       ├── font.rs              # Bitmap typography & alpha text rendering
+│       └── math.rs              # Fixed-point integer trigonometry
+├── scripts/
+│   ├── build.ps1                # Automated cargo compilation script
+│   ├── run-qemu.ps1             # QEMU emulator launch script
+│   └── generate_banner.py       # Banner generator
+├── Cargo.toml                   # Root workspace manifest
+└── x86_64-atulyaos.json         # Custom bare-metal target specification
 ```
+
+---
+
+<div align="center">
+
+**Built with ❤️ for Atulya AI** • *Crafted in pure Rust*
+
+</div>
