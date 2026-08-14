@@ -13,6 +13,7 @@ mod display;
 mod font;
 mod math;
 mod serial;
+mod timer;
 mod allocator;
 mod memory;
 mod interrupts;
@@ -25,7 +26,6 @@ mod gpu;
 mod login;
 mod sound;
 mod pci;
-mod gdt;
 
 use bootloader_api::{config::Mapping, entry_point, BootInfo, BootloaderConfig};
 use core::panic::PanicInfo;
@@ -81,14 +81,15 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     allocator::init(heap_virt as usize, heap_size as usize);
     serial::serial_write_line("Heap initialized");
 
-    gdt::init();
-    serial::serial_write_line("GDT initialized.");
-
-    let _ = fs::ata::DISK.lock().init();
-
     serial::serial_write_line("About to init interrupts...");
     interrupts::init();
     serial::serial_write_line("Interrupts initialized.");
+
+    // Calibrate real wall-clock timing (TSC vs PIT) before any animation
+    // runs. This only polls hardware registers — safe before
+    // interrupts::enable(), and it's what makes boot_splash/login timing
+    // match real seconds instead of "however fast this CPU spins".
+    timer::calibrate();
 
     serial::serial_write_line("About to init scheduler...");
     scheduler::init();

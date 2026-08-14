@@ -669,14 +669,20 @@ impl Terminal {
             let dir = cmd_str.get(6..).unwrap_or("").trim();
             let resolved = self.resolve_path(dir);
             match self.fs.mkdir(&resolved) {
-                Ok(_) => self.write_line("Directory created"),
+                Ok(_) => {
+                    let _ = self.fs.sync_to_disk();
+                    self.write_line("Directory created (persisted to disk)");
+                }
                 Err(_) => self.write_line("mkdir: failed to create directory"),
             }
         } else if cmd_str.starts_with("rm ") {
             let file = cmd_str.get(3..).unwrap_or("").trim();
             let resolved = self.resolve_path(file);
             match self.fs.rm(&resolved) {
-                Ok(_) => self.write_line("Removed"),
+                Ok(_) => {
+                    let _ = self.fs.sync_to_disk();
+                    self.write_line("Removed (persisted to disk)");
+                }
                 Err(_) => self.write_line("rm: failed to remove"),
             }
         } else if cmd_str.starts_with("echo ") {
@@ -689,6 +695,8 @@ impl Terminal {
                     Ok(handle) => {
                         let _ = self.fs.write(handle, text.as_bytes());
                         let _ = self.fs.close(handle);
+                        let _ = self.fs.sync_to_disk();
+                        self.write_line("Wrote and persisted to ATA disk");
                     }
                     Err(_) => self.write_line("echo: cannot write to file"),
                 }
@@ -773,21 +781,9 @@ pub fn run(display: &mut Display) -> ! {
         crate::font::centered_text(display, cx, 28, "GOOD EVENING, ATUL", 1, Rgb::new(180, 230, 255));
         crate::font::centered_text(display, cx, 48, "ATULYA IS READY.", 2, theme.accent);
 
-        // Animated Multi-Color Audio Waveform
-        let wave_y = 80;
-        for i in 0..80 {
-            let wx = cx.saturating_sub(160) + i * 4;
-            let wave_val = crate::math::sinish((tick as i32 * 4 + i as i32 * 14) % 360).unsigned_abs() as usize;
-            let wave_h = (wave_val * 16 / 1024).max(2);
-            let col = if i < 26 {
-                Rgb::new(255, 160, 40) // Amber
-            } else if i < 54 {
-                theme.accent           // Cyan
-            } else {
-                Rgb::new(210, 80, 255) // Magenta
-            };
-            display.rect(wx, wave_y - wave_h, 2, wave_h * 2, col);
-        }
+        // Consolidated Float Harmonic Audio Waveform
+        let effects = crate::gpu::effects::EffectRenderer::new();
+        effects.draw_harmonic_waveform(display, cx, 80, 320, tick, theme.accent);
 
         // ── 3. Left Navigation Sidebar ───────────────────────────────────────
         let side_w = 160;

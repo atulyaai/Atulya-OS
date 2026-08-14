@@ -112,4 +112,34 @@ impl EffectRenderer {
             display.circle_filled(x as usize, y as usize, 2, c);
         }
     }
+
+    /// Render floating AI harmonic audio visualizer waveform using real float trigonometric functions.
+    pub fn draw_harmonic_waveform(
+        &self,
+        display: &mut Display,
+        cx: usize,
+        cy: usize,
+        width: usize,
+        tick: u64,
+        color: Rgb,
+    ) {
+        let half_w = (width / 2) as isize;
+        let t = (tick as f32) * 0.08;
+
+        for dx in -half_w..half_w {
+            let x = (cx as isize + dx) as usize;
+            let rel = (dx as f32) / (half_w as f32);
+            let env = 1.0 - (rel * rel); // Parabolic envelope
+
+            let w1 = super::shader::fsin(rel * 6.0 + t);
+            let w2 = super::shader::fsin(rel * 12.0 - t * 1.5) * 0.5;
+            let h_val = ((w1 + w2) * 16.0 * env) as isize;
+
+            let y_top = (cy as isize - h_val.abs()).max(0) as usize;
+            let y_bot = (cy as isize + h_val.abs()).min(display.height() as isize - 1) as usize;
+
+            let col_dim = color.dim((env * 240.0) as u16);
+            display.draw_line(x, y_top, x, y_bot, col_dim);
+        }
+    }
 }

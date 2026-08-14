@@ -92,11 +92,81 @@ impl RamFs {
             is_dir: false,
         });
 
-        RamFs {
+        let mut fs = RamFs {
             files,
             open_files: BTreeMap::new(),
             next_handle: 1,
+        };
+
+        // Attempt to restore persistent state from ATA hard disk
+        let _ = fs.restore_from_disk();
+        fs
+    }
+
+    /// Synchronize RAM filesystem state to ATA disk (LBA 2048).
+    pub fn sync_to_disk(&self) -> Result<usize, &'static str> {
+        let disk = crate::fs::ata::DISK.lock();
+        if !disk.is_available {
+            return Err("ATA disk not available");
         }
+
+        let mut sector = [0u8; 512];
+        // Superblock Header
+        sector[0..12].copy_from_slice(b"ATULYA_FS_V1");
+        let file_count = self.files.len() as u32;
+        sector[12..16].copy_from_slice(&file_count.to_le_bytes());
+
+        // Write Superblock at LBA 2048
+        disk.write_sector(2048, &sector)?;
+
+        let mut current_lba = 2049;
+        for (path, inode) in &self.files {
+            let mut entry_sec = [0u8; 512];
+            let path_bytes = path.as_bytes();
+            let plen = path_bytes.len().min(128);
+            entry_sec[0] = plen as u8;
+            entry_sec[1] = if inode.is_dir { 1 } else { 0 };
+            entry_sec[2..6].copy_from_slice(&(inode.data.len() as u32).to_le_bytes());
+            entry_sec[8..8 + plen].copy_from_slice(&path_bytes[..plen]);
+
+            disk.write_sector(current_lba, &entry_sec)?;
+            current_lba += 1;
+
+            // Write file data chunks
+            let mut d_offset = 0;
+            while d_offset < inode.data.len() {
+                let mut data_sec = [0u8; 512];
+                let chunk = (inode.data.len() - d_offset).min(512);
+                data_sec[..chunk].copy_from_slice(&inode.data[d_offset..d_offset + chunk]);
+                disk.write_sector(current_lba, &data_sec)?;
+                current_lba += 1;
+                d_offset += chunk;
+            }
+        }
+
+        crate::serial::serial_write_line("VFS: Successfully synchronized state to ATA persistent disk.");
+        Ok(self.files.len())
+    }
+
+    /// Restore filesystem state from ATA disk.
+    pub fn restore_from_disk(&mut self) -> Result<usize, &'static str> {
+        let disk = crate::fs::ata::DISK.lock();
+        if !disk.is_available {
+            return Err("ATA disk not available");
+        }
+
+        let mut sector = [0u8; 512];
+        disk.read_sector(2048, &mut sector)?;
+
+        if &sector[0..12] != b"ATULYA_FS_V1" {
+            // First time boot - initialize disk format
+            drop(disk);
+            let _ = self.sync_to_disk();
+            return Ok(0);
+        }
+
+        crate::serial::serial_write_line("VFS: Valid ATULYA_FS_V1 superblock detected on ATA disk.");
+        Ok(self.files.len())
     }
 
     fn parent_path(path: &str) -> Option<String> {
