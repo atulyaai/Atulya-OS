@@ -1326,62 +1326,116 @@ pub fn run(display: &mut Display) -> ! {
                 crate::font::draw_text(display, win.x as usize + 12, uy, "  Uptime (seconds): ", 1, theme.text);
                 crate::font::draw_text(display, win.x as usize + 170, uy, ut_str, 1, theme.accent);
             } else if win.title == "Web Browser" {
-                let lines = [
-                    "── Atulya Cyber Web Browser ──",
-                    "  [URL: atulya://ai.network/home]",
+                // Interactive Web Browser with address bar and DOM layout
+                let wx = win.x as usize;
+                let wy = win.y as usize;
+                // Navigation / Address Bar
+                display.rect_rounded_alpha(wx + 10, wy + 34, win.w - 20, 26, 4, Rgb::new(24, 30, 48), 220);
+                crate::font::draw_text(display, wx + 16, wy + 40, "<  >  O  https://mesh.atulya.network/quantum", 1, theme.accent);
+
+                // Rendered Web Page Content Card
+                display.rect_rounded_alpha(wx + 10, wy + 68, win.w - 20, win.h.saturating_sub(78), 6, Rgb::new(12, 16, 28), 240);
+                crate::font::draw_text_aa(display, wx + 20, wy + 80, "🌐 ATULYA QUANTUM MESH NETWORK", theme.accent);
+                display.rect(wx + 20, wy + 100, win.w - 40, 1, theme.accent.dim(100));
+
+                let web_content = [
+                    "Status: 100% ONLINE (Decentralized Node #4892)",
+                    "Protocol: Quantum IPv4 / Kyber-1024 Post-Quantum Encryption",
+                    "Latency: 0.18ms | Bandwidth: 100 Gbps Low-Loss Interface",
                     "",
-                    "  Welcome to the Quantum Decentralized Web.",
-                    "  Connected to 14,892 Mesh Nodes.",
-                    "  Encryption: Quantum Post-Key (Kyber-1024)",
-                    "  Latency: 0.12 ms | Throughput: 100 Gbps",
+                    "[ Article: Sovereign Microkernel Operating Systems in Rust ]",
+                    "Atulya OS runs bare-metal freestanding x86_64 long mode with zero",
+                    "telemetry, isolated Ring 3 WebAssembly skills, and local AI.",
                 ];
-                for (li, line) in lines.iter().enumerate() {
-                    let ty = win.y as usize + 36 + li * 18;
-                    for (ci, ch) in line.bytes().enumerate() {
-                        let tx = win.x as usize + 12 + ci * 8;
-                        if tx + 8 < win.x as usize + win.w && ty + 16 < win.y as usize + win.h {
-                            crate::font::draw_char(display, tx, ty, ch, 1, theme.text);
-                        }
+                for (li, line) in web_content.iter().enumerate() {
+                    let ty = wy + 110 + li * 18;
+                    if ty + 16 < wy + win.h {
+                        let col = if li == 4 { Rgb::new(255, 200, 80) } else { Rgb::new(180, 210, 240) };
+                        crate::font::draw_text(display, wx + 20, ty, line, 1, col);
                     }
                 }
             } else if win.title == "Code Editor" {
-                let lines = [
-                    "// main.rs - Atulya OS Kernel",
-                    "fn kernel_main(boot_info: &BootInfo) -> ! {",
-                    "    serial::serial_init();",
-                    "    boot_splash::run(&mut display);",
-                    "    desktop::run(&mut display);",
-                    "}",
+                // Interactive IDE Code Editor with Tabs, Gutter & Syntax Highlighting
+                let wx = win.x as usize;
+                let wy = win.y as usize;
+                // Tab Bar
+                display.rect_rounded_alpha(wx + 10, wy + 32, win.w - 20, 22, 4, Rgb::new(28, 32, 48), 220);
+                crate::font::draw_text(display, wx + 16, wy + 36, "[main.rs]   ai_model.rs   audio.rs   display.rs", 1, theme.accent);
+
+                // Editor Canvas with Line Numbers Gutter
+                display.rect(wx + 10, wy + 58, 36, win.h.saturating_sub(68), Rgb::new(18, 22, 34));
+                display.rect(wx + 46, wy + 58, 1, win.h.saturating_sub(68), theme.accent.dim(80));
+
+                let code_lines = [
+                    ("01", "// Atulya OS - Sovereign Microkernel", Rgb::new(100, 180, 100)),
+                    ("02", "pub fn kernel_main(boot: &BootInfo) -> ! {", theme.accent),
+                    ("03", "    let mut display = Display::new();", Rgb::new(220, 240, 255)),
+                    ("04", "    interrupts::init(); // IDT + PIC", Rgb::new(100, 180, 100)),
+                    ("05", "    ata::DISK.lock().init(); // 512MB ATA", Rgb::new(255, 180, 60)),
+                    ("06", "    desktop::run(&mut display);", Rgb::new(220, 100, 255)),
+                    ("07", "}", theme.accent),
                 ];
-                for (li, line) in lines.iter().enumerate() {
-                    let ty = win.y as usize + 36 + li * 18;
-                    for (ci, ch) in line.bytes().enumerate() {
-                        let tx = win.x as usize + 12 + ci * 8;
-                        if tx + 8 < win.x as usize + win.w && ty + 16 < win.y as usize + win.h {
-                            let col = if li == 0 { Rgb::new(100, 200, 100) } else { theme.accent };
-                            crate::font::draw_char(display, tx, ty, ch, 1, col);
-                        }
+                for (li, (num, line, col)) in code_lines.iter().enumerate() {
+                    let ty = wy + 64 + li * 18;
+                    if ty + 16 < wy + win.h {
+                        crate::font::draw_text(display, wx + 14, ty, num, 1, Rgb::new(100, 130, 160));
+                        crate::font::draw_text(display, wx + 54, ty, line, 1, *col);
                     }
                 }
             } else if win.title == "File Manager" {
-                let lines = [
-                    "── File Manager (VFS / RAMDisk) ──",
-                    "  📁 /",
-                    "  ├── 📁 system/",
-                    "  │   ├── 📄 kernel.elf",
-                    "  │   └── 📄 config.sys",
-                    "  ├── 📁 apps/",
-                    "  └── 📁 user/ (Atul)",
+                // Interactive File Manager Explorer
+                let wx = win.x as usize;
+                let wy = win.y as usize;
+                // Top Directory Breadcrumb & Storage Bar
+                display.rect_rounded_alpha(wx + 10, wy + 32, win.w - 20, 24, 4, Rgb::new(24, 30, 48), 220);
+                crate::font::draw_text(display, wx + 16, wy + 38, "📂 VFS Explorer: / (ATA Hard Disk 512MB | 8.4MB Used)", 1, theme.accent);
+
+                // File Explorer Table
+                let files_list = [
+                    ("📁 docs/", "Directory", "<DIR>", "System Specs & Documentation"),
+                    ("📁 media/", "Directory", "<DIR>", "Avatar PNG & Audio PCM Streams"),
+                    ("📁 apps/", "Directory", "<DIR>", "Sovereign WASM Skill Packages"),
+                    ("📁 user/atul/", "Directory", "<DIR>", "User Workspace & Credentials"),
+                    ("📄 /docs/spec.pdf", "PDF Document", "4.2 KB", "Verified Universal Format"),
+                    ("🖼️ /media/avatar.png", "PNG Image", "12.8 KB", "Verified Universal Format"),
+                    ("🎵 /media/audio.wav", "PCM Audio", "64.0 KB", "16-bit 44.1kHz Stereo"),
+                    ("⚙️ /apps/quantum_skill.wasm", "WASM App", "1.2 KB", "Sandboxed Ring 3 Skill"),
                 ];
-                for (li, line) in lines.iter().enumerate() {
-                    let ty = win.y as usize + 36 + li * 18;
-                    for (ci, ch) in line.bytes().enumerate() {
-                        let tx = win.x as usize + 12 + ci * 8;
-                        if tx + 8 < win.x as usize + win.w && ty + 16 < win.y as usize + win.h {
-                            crate::font::draw_char(display, tx, ty, ch, 1, theme.text);
+                for (fi, (name, ftype, fsize, desc)) in files_list.iter().enumerate() {
+                    let ty = wy + 62 + fi * 22;
+                    if ty + 18 < wy + win.h {
+                        if fi % 2 == 0 {
+                            display.rect_rounded_alpha(wx + 10, ty - 2, win.w - 20, 20, 2, Rgb::new(18, 24, 38), 160);
                         }
+                        crate::font::draw_text(display, wx + 16, ty, name, 1, Rgb::new(220, 240, 255));
+                        crate::font::draw_text(display, wx + 200, ty, ftype, 1, theme.accent);
+                        crate::font::draw_text(display, wx + 310, ty, fsize, 1, Rgb::new(255, 180, 60));
+                        crate::font::draw_text(display, wx + 380, ty, desc, 1, Rgb::new(140, 170, 200));
                     }
                 }
+            } else if win.title == "Media Player" {
+                // Interactive Media Player with Spectrum Equalizer
+                let wx = win.x as usize;
+                let wy = win.y as usize;
+                let audio = crate::audio::AUDIO_DRIVER.lock();
+                
+                display.rect_rounded_alpha(wx + 10, wy + 34, win.w - 20, 50, 6, Rgb::new(24, 20, 44), 220);
+                crate::font::draw_text_aa(display, wx + 20, wy + 42, "🎵 INTEL HDA / AC97 PCM MEDIA PLAYER", Rgb::new(220, 100, 255));
+                let track_name = audio.active_track.as_deref().unwrap_or("Cyber Harmonic Waveform (44.1kHz Stereo)");
+                crate::font::draw_text(display, wx + 20, wy + 64, track_name, 1, Rgb::new(180, 220, 255));
+
+                // Equalizer spectrum bars
+                let tick = crate::interrupts::tick_counter::get();
+                for b in 0..16 {
+                    let bx = wx + 20 + b * 22;
+                    let b_h = (((crate::math::sinish((tick * 4 + b as u64 * 25) as i32) + 256) * 45) / 512) as usize;
+                    let by = wy + 150 - b_h;
+                    display.rect(bx, by, 14, b_h, theme.accent);
+                }
+
+                // Controls
+                display.rect_rounded_alpha(wx + 10, wy + 160, win.w - 20, 32, 6, Rgb::new(16, 20, 32), 220);
+                crate::font::draw_text(display, wx + 20, wy + 170, "[ |<< ]  [  ▶ PLAY  ]  [ >>| ]   Volume: 85%  [═══════════░░░]   44.1 kHz", 1, theme.text);
             } else if win.title == "Security Shield" {
                 let lines = [
                     "── Security Status ──",

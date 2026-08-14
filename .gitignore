@@ -9,3 +9,4 @@ kernel/assets/preview/
 com1.txt
 qemu-serial.txt
 build_errors.json
+/dist/
