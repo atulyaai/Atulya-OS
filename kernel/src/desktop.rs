@@ -902,6 +902,12 @@ pub fn run(display: &mut Display) -> ! {
     let mut mouse_was_pressed = false;
     let mut drag_window: Option<(isize, isize, isize, isize)> = None;
 
+    // Spotlight global command & intent launcher state
+    let mut spotlight_active: bool = false;
+    let mut spotlight_anim: u16 = 0;
+    let mut spotlight_query: alloc::string::String = alloc::string::String::new();
+    let mut alt_pressed: bool = false;
+
     let mut windows = alloc::vec![
         Window { x: 200, y: 120, w: 560, h: 340, title: "Terminal", active: true, anim_scale: 256, is_open: true },
         Window { x: 240, y: 150, w: 500, h: 320, title: "Web Browser", active: false, anim_scale: 256, is_open: true },
@@ -1325,12 +1331,112 @@ pub fn run(display: &mut Display) -> ! {
         display.circle_filled(mouse.x as usize, mouse.y as usize, 5, Rgb::new(255, 255, 255));
         display.circle_outline(mouse.x as usize, mouse.y as usize, 5, theme.accent);
 
+        // ── 7. Spotlight Global Command & Intent Launcher Modal ──────────────
+        if spotlight_active && spotlight_anim < 256 {
+            spotlight_anim = (spotlight_anim + 32).min(256);
+        } else if !spotlight_active && spotlight_anim > 0 {
+            spotlight_anim = spotlight_anim.saturating_sub(32);
+        }
+
+        if spotlight_anim > 0 {
+            let sw = 640usize;
+            let sh = if spotlight_query.is_empty() { 120usize } else { 240usize };
+            let sx = (w.saturating_sub(sw)) / 2;
+            let sy = 140usize;
+            let sa = (245 * spotlight_anim / 256) as u16;
+
+            // Translucent glass backdrop
+            display.rect_rounded_alpha(sx, sy, sw, sh, 12, Rgb::new(8, 12, 24), sa);
+            display.rect_rounded_outline(sx, sy, sw, sh, 12, theme.accent.dim(spotlight_anim));
+
+            // Spotlight header & icon
+            crate::font::draw_text_aa(display, sx + 20, sy + 16, "✦ ATULYA SPOTLIGHT & INTENT SEARCH", theme.accent.dim(spotlight_anim));
+            crate::font::draw_text(display, sx + sw - 120, sy + 16, "[ESC to close]", 1, Rgb::new(120, 150, 180));
+
+            // Search input field
+            display.rect_rounded_alpha(sx + 20, sy + 44, sw - 40, 42, 8, Rgb::new(16, 24, 44), sa);
+            display.rect_rounded_outline(sx + 20, sy + 44, sw - 40, 42, 8, theme.accent.dim(180));
+
+            crate::font::draw_text(display, sx + 32, sy + 58, ">>", 1, theme.accent);
+
+            if spotlight_query.is_empty() {
+                crate::font::draw_text_aa(display, sx + 64, sy + 56, "Search apps, documents, VFS files, or type AI intent...", Rgb::new(100, 130, 160));
+            } else {
+                crate::font::draw_text_aa(display, sx + 64, sy + 56, &spotlight_query, Rgb::new(240, 250, 255));
+                // Blinking cursor
+                let tick = crate::interrupts::tick_counter::get();
+                if (tick / 30) % 2 == 0 {
+                    let cur_x = sx + 64 + spotlight_query.len() * 9;
+                    display.rect(cur_x, sy + 54, 2, 22, theme.accent);
+                }
+            }
+
+            // Real-time suggestions & preview results
+            if !spotlight_query.is_empty() {
+                let q_lower = spotlight_query.to_ascii_lowercase();
+                let mut results: alloc::vec::Vec<(&'static str, &'static str, &'static str)> = alloc::vec![];
+
+                if "terminal".contains(q_lower.as_str()) { results.push(("🖥️", "Terminal Console", "Launch or focus interactive command terminal")); }
+                if "web".contains(q_lower.as_str()) || "browser".contains(q_lower.as_str()) { results.push(("🌐", "Web Browser", "Quantum decentralized mesh browser")); }
+                if "code".contains(q_lower.as_str()) || "editor".contains(q_lower.as_str()) { results.push(("💻", "Code Editor", "Built-in kernel & skill source editor")); }
+                if "spec".contains(q_lower.as_str()) || "pdf".contains(q_lower.as_str()) { results.push(("📑", "/docs/spec.pdf", "Universal Viewer: PDF Document")); }
+                if "avatar".contains(q_lower.as_str()) || "png".contains(q_lower.as_str()) { results.push(("🖼️", "/media/avatar.png", "Universal Viewer: PNG Image")); }
+                if "audio".contains(q_lower.as_str()) || "wav".contains(q_lower.as_str()) { results.push(("🎵", "/media/audio.wav", "Universal Viewer: PCM Audio")); }
+                if "wasm".contains(q_lower.as_str()) || "skill".contains(q_lower.as_str()) { results.push(("⚙️", "/apps/quantum_skill.wasm", "WebAssembly Sandbox Process")); }
+                if "identity".contains(q_lower.as_str()) || "json".contains(q_lower.as_str()) { results.push(("📄", "/user/atul/identity.json", "User Credentials & Authorization")); }
+                if results.is_empty() {
+                    results.push(("✦", "AI Intent Routing", "Dispatch natural-language query to AI Engine on Enter"));
+                }
+
+                for (ri, (icon, title, desc)) in results.iter().take(3).enumerate() {
+                    let ry = sy + 96 + ri * 44;
+                    display.rect_rounded_alpha(sx + 20, ry, sw - 40, 38, 6, Rgb::new(20, 30, 56), sa);
+                    if ri == 0 {
+                        display.rect_rounded_outline(sx + 20, ry, sw - 40, 38, 6, theme.accent);
+                    }
+                    crate::font::draw_text_aa(display, sx + 32, ry + 10, icon, theme.accent);
+                    crate::font::draw_text_aa(display, sx + 64, ry + 10, title, Rgb::new(220, 240, 255));
+                    crate::font::draw_text(display, sx + 260, ry + 12, desc, 1, Rgb::new(140, 170, 200));
+                }
+            }
+        }
+
+        // Draw mouse cursor
+        display.circle_filled(mouse.x as usize, mouse.y as usize, 5, Rgb::new(255, 255, 255));
+        display.circle_outline(mouse.x as usize, mouse.y as usize, 5, theme.accent);
+
         // Swap buffers
         display.swap_buffers();
 
         // Process keyboard queue
         while let Some(scancode) = crate::interrupts::KEYBOARD_QUEUE.lock().pop() {
-            if scancode == 0x0F {
+            if scancode == 0x38 {
+                alt_pressed = true;
+                continue;
+            } else if scancode == 0xB8 {
+                alt_pressed = false;
+                continue;
+            }
+
+            if scancode == 0x39 && alt_pressed {
+                // Alt+Space: Toggle Spotlight
+                spotlight_active = !spotlight_active;
+                if !spotlight_active {
+                    spotlight_query.clear();
+                }
+                continue;
+            }
+
+            if scancode == 0x01 {
+                // Escape key
+                if spotlight_active {
+                    spotlight_active = false;
+                    spotlight_query.clear();
+                    continue;
+                }
+            }
+
+            if scancode == 0x0F && !spotlight_active {
                 // Tab: cycle window focus
                 if !windows.is_empty() {
                     windows[focused_win].active = false;
@@ -1339,7 +1445,57 @@ pub fn run(display: &mut Display) -> ! {
                 }
                 continue;
             }
+
             if let Some(ch) = kbd.handle_scancode(scancode) {
+                if spotlight_active {
+                    if ch == '\x1b' {
+                        spotlight_active = false;
+                        spotlight_query.clear();
+                    } else if ch == '\n' {
+                        if !spotlight_query.is_empty() {
+                            let q_lower = spotlight_query.to_ascii_lowercase();
+                            if q_lower.contains("terminal") {
+                                windows[0].is_open = true; focused_win = 0; windows[0].active = true;
+                            } else if q_lower.contains("browser") || q_lower.contains("web") {
+                                windows[1].is_open = true; focused_win = 1; windows[1].active = true;
+                            } else if q_lower.contains("mesh") {
+                                windows[2].is_open = true; focused_win = 2; windows[2].active = true;
+                            } else if q_lower.contains("code") {
+                                windows[3].is_open = true; focused_win = 3; windows[3].active = true;
+                            } else if q_lower.contains("file") {
+                                windows[4].is_open = true; focused_win = 4; windows[4].active = true;
+                            } else if q_lower.contains("analytic") || q_lower.contains("stat") {
+                                windows[5].is_open = true; focused_win = 5; windows[5].active = true;
+                            } else if q_lower.contains("media") {
+                                windows[6].is_open = true; focused_win = 6; windows[6].active = true;
+                            } else if q_lower.contains("3d") {
+                                windows[7].is_open = true; focused_win = 7; windows[7].active = true;
+                            } else if q_lower.contains("security") {
+                                windows[8].is_open = true; focused_win = 8; windows[8].active = true;
+                            } else if q_lower.starts_with("run ") || q_lower.ends_with(".wasm") {
+                                term.write_str(&alloc::format!("run {}", spotlight_query));
+                                term.execute_command(&mut theme_idx, &mut scan_active, &mut matrix_active);
+                                windows[0].is_open = true; focused_win = 0; windows[0].active = true;
+                            } else if q_lower.starts_with("view ") || q_lower.starts_with("open ") || q_lower.starts_with("cat ") {
+                                term.write_str(&spotlight_query);
+                                term.execute_command(&mut theme_idx, &mut scan_active, &mut matrix_active);
+                                windows[0].is_open = true; focused_win = 0; windows[0].active = true;
+                            } else {
+                                term.write_str(&alloc::format!("ask {}", spotlight_query));
+                                term.execute_command(&mut theme_idx, &mut scan_active, &mut matrix_active);
+                                windows[0].is_open = true; focused_win = 0; windows[0].active = true;
+                            }
+                        }
+                        spotlight_active = false;
+                        spotlight_query.clear();
+                    } else if ch == '\x08' {
+                        spotlight_query.pop();
+                    } else if ch != '\0' {
+                        spotlight_query.push(ch);
+                    }
+                    continue;
+                }
+
                 if matrix_active != 0 {
                     if ch == '\x1b' || ch == '\n' {
                         matrix_active = 0;
