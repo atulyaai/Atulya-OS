@@ -33,6 +33,10 @@ pub mod viewer;
 pub mod pkg;
 pub mod audio;
 pub mod ai_model;
+pub mod power;
+pub mod voice;
+pub mod game;
+pub mod vault;
 
 use bootloader_api::{config::Mapping, entry_point, BootInfo, BootloaderConfig};
 use core::panic::PanicInfo;

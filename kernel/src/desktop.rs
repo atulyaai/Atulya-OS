@@ -908,6 +908,41 @@ impl Terminal {
                 }
                 Err(_) => self.write_line("play: audio file not found"),
             }
+        } else if cmd_str == "shutdown" || cmd_str == "poweroff" {
+            self.write_line("Shutting down Atulya OS...");
+            unsafe { crate::power::PowerManager::shutdown(); }
+        } else if cmd_str == "reboot" || cmd_str == "restart" {
+            self.write_line("Rebooting Atulya OS...");
+            unsafe { crate::power::PowerManager::reboot(); }
+        } else if cmd_str.starts_with("speak ") {
+            let text = cmd_str[6..].trim();
+            self.write_str("🗣️ Speaking: \"");
+            self.write_str(text);
+            self.write_line("\" [Formant Vocal Tract TTS]");
+            crate::voice::VOICE.lock().speak(text);
+        } else if cmd_str.starts_with("vault ") || cmd_str == "vault" {
+            let arg = if cmd_str.len() > 6 { cmd_str[6..].trim() } else { "status" };
+            let mut vault = crate::vault::VAULT.lock();
+            if arg == "lock" {
+                vault.lock();
+                self.write_line("🔒 Vault locked. User memory sanitized.");
+            } else if arg.starts_with("unlock") {
+                let key = if arg.len() > 7 { arg[7..].trim() } else { "atulya" };
+                match vault.unlock(key) {
+                    Ok(msg) => self.write_line(msg),
+                    Err(err) => self.write_line(err),
+                }
+            } else {
+                self.write_line("── Multi-User Encrypted Vault ──");
+                self.write_str("  User: ");
+                self.write_line(vault.active_user);
+                self.write_str("  State: ");
+                if vault.is_unlocked {
+                    self.write_line("UNLOCKED (Decrypted /user/atul/vault)");
+                } else {
+                    self.write_line("LOCKED (ChaCha20 Sealed) — Run 'vault unlock <key>'");
+                }
+            }
         } else if cmd_str.starts_with("wallpaper ") {
             let mode = cmd_str[10..].trim();
             if mode == "nebula" {
@@ -1489,22 +1524,8 @@ pub fn run(display: &mut Display) -> ! {
                     }
                 }
             } else if win.title == "3D Container" {
-                let lines = [
-                    "── 3D Container Runtime ──",
-                    "  Container: Axon-Node-01",
-                    "  Engine: WebAssembly (Wasm-3D)",
-                    "  GPU Virtualization: Active",
-                    "  Framerate: 60.0 FPS",
-                ];
-                for (li, line) in lines.iter().enumerate() {
-                    let ty = win.y as usize + 36 + li * 18;
-                    for (ci, ch) in line.bytes().enumerate() {
-                        let tx = win.x as usize + 12 + ci * 8;
-                        if tx + 8 < win.x as usize + win.w && ty + 16 < win.y as usize + win.h {
-                            crate::font::draw_char(display, tx, ty, ch, 1, theme.text);
-                        }
-                    }
-                }
+                let tick = crate::interrupts::tick_counter::get();
+                crate::game::GAME.lock().update_and_render(display, win.x as usize, win.y as usize, win.w, win.h, tick);
             }
         }
 
