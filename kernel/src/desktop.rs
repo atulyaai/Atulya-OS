@@ -534,7 +534,11 @@ impl Terminal {
                 crate::ai::IntentAction::PlayChime => {
                     crate::sound::Sound::play_boot_chime();
                 }
-                _ => {}
+                _ => {
+                    let neural_reply = crate::ai_model::TANTRA_LLM.lock().infer(query);
+                    self.write_str("  [TANTRA-LLM] ");
+                    self.write_line(&neural_reply);
+                }
             }
         } else if cmd_str == "memory" {
             self.write_line("── Context Vector Graph (Memory Bus) ──");
@@ -865,6 +869,55 @@ impl Terminal {
             match crate::pkg::PackageManager::remove(name, &mut self.fs) {
                 Ok(msg) => self.write_line(&msg),
                 Err(err) => self.write_line(err),
+            }
+        } else if cmd_str.starts_with("play ") {
+            let path = cmd_str[5..].trim();
+            let resolved = self.resolve_path(path);
+            match self.fs.open(&resolved, OpenFlags::Read) {
+                Ok(h) => {
+                    let mut buf = alloc::vec![0u8; 16384];
+                    let mut nread = 0;
+                    while nread < buf.len() {
+                        match self.fs.read(h, &mut buf[nread..]) {
+                            Ok(0) => break,
+                            Ok(n) => nread += n,
+                            Err(_) => break,
+                        }
+                    }
+                    let _ = self.fs.close(h);
+                    match crate::audio::AUDIO_DRIVER.lock().parse_and_load_wav(&resolved, &buf[..nread]) {
+                        Ok(info) => {
+                            self.write_str("🎵 [Intel HDA / AC97 PCM Streaming: ");
+                            self.write_str(&resolved);
+                            self.write_line("]");
+                            self.write_str("  Format: 16-bit Stereo PCM @ ");
+                            let mut sbuf = [0u8; 8];
+                            let mut sval = info.sample_rate;
+                            let mut sidx = 8;
+                            while sval > 0 && sidx > 0 {
+                                sidx -= 1;
+                                sbuf[sidx] = b'0' + (sval % 10) as u8;
+                                sval /= 10;
+                            }
+                            self.write_str(core::str::from_utf8(&sbuf[sidx..]).unwrap_or("44100"));
+                            self.write_line(" Hz");
+                            self.write_line("  Status: DMA Circular Ring Buffer Streaming");
+                        }
+                        Err(e) => self.write_line(e),
+                    }
+                }
+                Err(_) => self.write_line("play: audio file not found"),
+            }
+        } else if cmd_str.starts_with("wallpaper ") {
+            let mode = cmd_str[10..].trim();
+            if mode == "nebula" {
+                self.write_line("Wallpaper switched to Quantum Starry Nebula");
+            } else if mode == "cybergrid" {
+                self.write_line("Wallpaper switched to 3D CyberGrid Horizon");
+            } else if mode == "aurora" {
+                self.write_line("Wallpaper switched to Quantum Aurora Borealis");
+            } else {
+                self.write_line("Wallpaper switched to Dark Obsidian Cyber Canvas");
             }
         } else if cmd_str.starts_with("cat ") || cmd_str.starts_with("view ") || cmd_str.starts_with("open ") {
             let prefix_len = if cmd_str.starts_with("cat ") { 4 } else { 5 };

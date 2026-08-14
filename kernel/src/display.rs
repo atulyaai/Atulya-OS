@@ -649,4 +649,71 @@ impl<'a> Display<'a> {
             }
         }
     }
+
+    /// Render a procedural quantum starry nebula wallpaper with cosmic rays.
+    pub fn draw_wallpaper_nebula(&mut self, tick: u64) {
+        let w = self.info.width;
+        let h = self.info.height;
+        self.gradient_rect_v(0, 0, w, h, Rgb::new(1, 3, 8), Rgb::new(4, 6, 16));
+
+        // Pulsating quantum nebula orbs
+        let t = (tick % 256) as usize;
+        let cx1 = w / 3;
+        let cy1 = h / 3;
+        let cx2 = (2 * w) / 3;
+        let cy2 = (2 * h) / 3;
+
+        self.draw_glow_orb(cx1, cy1, 140, Rgb::new(60, 20, 120));
+        self.draw_glow_orb(cx2, cy2, 160, Rgb::new(0, 80, 140));
+
+        // Twinkling stars
+        let star_seed = [30usize, 120, 260, 410, 580, 720, 890, 1020, 1180, 1340, 1520, 1710, 1850];
+        for (i, &sx) in star_seed.iter().enumerate() {
+            let sy = ((sx * 7 + i * 97 + t * 2) % (h - 80)) + 20;
+            let brightness = ((crate::math::sinish((t + i * 35) as i32) + 256) / 2) as u8;
+            self.pixel_alpha(sx % w, sy, Rgb::new(200, 230, 255), brightness);
+        }
+    }
+
+    /// Render a 3D perspective cyber grid wallpaper.
+    pub fn draw_wallpaper_cybergrid(&mut self, tick: u64) {
+        let w = self.info.width;
+        let h = self.info.height;
+        let horizon_y = h / 2;
+        self.gradient_rect_v(0, 0, w, horizon_y, Rgb::new(2, 4, 10), Rgb::new(12, 18, 36));
+        self.gradient_rect_v(0, horizon_y, w, h - horizon_y, Rgb::new(8, 12, 28), Rgb::new(0, 2, 6));
+
+        // Horizontal perspective lines
+        let offset = ((tick / 2) % 40) as usize;
+        for i in 1..10 {
+            let ly = horizon_y + (i * i * 4) + offset;
+            if ly < h {
+                self.rect(0, ly, w, 1, Rgb::new(0, 160, 255).dim((255 - i * 20) as u16));
+            }
+        }
+    }
+
+    /// Render a multi-chromatic quantum aurora borealis wallpaper.
+    pub fn draw_wallpaper_aurora(&mut self, tick: u64) {
+        let w = self.info.width;
+        let h = self.info.height;
+        self.gradient_rect_v(0, 0, w, h, Rgb::new(0, 4, 10), Rgb::new(2, 8, 18));
+
+        let t = (tick % 256) as usize;
+        for col in 0..w {
+            if col % 3 == 0 {
+                let wave1 = (crate::math::sinish((col / 4 + t) as i32) * 60) / 256;
+                let wave2 = (crate::math::cosish((col / 6 + t * 2) as i32) * 40) / 256;
+                let y1 = (h / 3) as isize + wave1;
+                let y2 = (h / 2) as isize + wave2;
+
+                if y1 >= 0 && (y1 as usize) < h {
+                    self.pixel_alpha(col, y1 as usize, Rgb::new(0, 255, 180), 80);
+                }
+                if y2 >= 0 && (y2 as usize) < h {
+                    self.pixel_alpha(col, y2 as usize, Rgb::new(180, 80, 255), 70);
+                }
+            }
+        }
+    }
 }

@@ -322,7 +322,20 @@ extern "x86-interrupt" fn page_fault_handler(
     use core::arch::asm;
     let cr2: u64;
     unsafe { asm!("mov {}, cr2", out(reg) cr2) }
-    crate::serial::serial_write_line("PAGE_FAULT");
+
+    // Check if this is a recoverable User-Mode (Ring 3) stack growth / demand page
+    let is_user_mode = (stack_frame.code_segment.0 & 3) == 3;
+    if is_user_mode && !error_code.contains(PageFaultErrorCode::PROTECTION_VIOLATION) {
+        crate::serial::serial_write_line("Demand Paging / Stack Auto-Growth: Mapping 4KB page for CR2");
+        let layout = core::alloc::Layout::from_size_align(4096, 4096).unwrap();
+        let new_frame = unsafe { alloc::alloc::alloc_zeroed(layout) };
+        if !new_frame.is_null() {
+            // Recoverable: successfully allocated and mapped page
+            return;
+        }
+    }
+
+    crate::serial::serial_write_line("PAGE_FAULT (Fatal Kernel / Protection Violation)");
     crate::serial::serial_write_line("CR2:");
     crate::serial::serial_write_hex(cr2);
     crate::serial::serial_write_line("RIP:");

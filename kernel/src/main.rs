@@ -31,6 +31,8 @@ mod ai;
 mod syscall;
 pub mod viewer;
 pub mod pkg;
+pub mod audio;
+pub mod ai_model;
 
 use bootloader_api::{config::Mapping, entry_point, BootInfo, BootloaderConfig};
 use core::panic::PanicInfo;
