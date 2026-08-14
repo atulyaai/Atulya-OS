@@ -43,11 +43,12 @@ impl Context {
         let rsp = (stack_base as usize + stack_size) as u64;
         unsafe {
             let frame_top = (stack_base as usize + stack_size) as *mut u64;
-            // Build a 3-value frame matching CPU interrupt format: [RIP, CS, RFLAGS].
-            // Stack grows downward. frame_top is one past the end.
-            core::ptr::write(frame_top.sub(3), entry as u64);  // RIP
-            core::ptr::write(frame_top.sub(2), 0x08u64);       // CS
-            core::ptr::write(frame_top.sub(1), 0x202u64);      // RFLAGS (IF=1 + bit1)
+            // Build the canonical 5-value x86_64 iretq frame: [SS, RSP, RFLAGS, CS, RIP]
+            core::ptr::write(frame_top.sub(5), entry as u64);  // RIP
+            core::ptr::write(frame_top.sub(4), 0x08u64);       // CS (Kernel Code Selector 0x08)
+            core::ptr::write(frame_top.sub(3), 0x202u64);      // RFLAGS (IF=1 + bit1)
+            core::ptr::write(frame_top.sub(2), rsp);           // RSP (Kernel Stack Top)
+            core::ptr::write(frame_top.sub(1), 0x10u64);       // SS (Kernel Data Selector 0x10)
         }
 
         Context {
@@ -56,7 +57,7 @@ impl Context {
             rsi: 0, rdi: 0, rbp: 0,
             r8: 0, r9: 0, r10: 0, r11: 0,
             r12: 0, r13: 0, r14: 0, r15: 0,
-            rsp: rsp - 24, // point at RIP (start of 3-value frame)
+            rsp: rsp - 40, // point at RIP (start of 5-value iretq frame)
         }
     }
 
@@ -223,11 +224,15 @@ impl Drop for Process {
 #[no_mangle]
 #[unsafe(naked)]
 pub unsafe extern "C" fn restore_context(ctx: *const Context) {
-    // Load ALL registers from context. We read saved RIP from the interrupt
-    // frame at [ctx.rsp] and jump to it via R10 (the only register we don't
-    // fully restore — R10 gets the saved RIP instead of ctx.r10).
+    // Load ALL registers from Context, set RSP to the iretq frame, and execute iretq.
+    // The CPU hardware automatically checks CS selector in the frame:
+    //   - If Ring 0 (CS=0x08): pops [RIP, CS, RFLAGS] and resumes in kernel space.
+    //   - If Ring 3 (CS=0x23): pops [RIP, CS, RFLAGS, RSP, SS] and drops to user space.
     core::arch::naked_asm!(
-        // Load all GP registers from context
+        // Load RSP pointing directly at the iretq frame
+        "mov rsp, [rdi + 0x80]",
+
+        // Restore all GP registers from context
         "mov rbx, [rdi + 0x08]",
         "mov rcx, [rdi + 0x10]",
         "mov rdx, [rdi + 0x18]",
@@ -235,23 +240,21 @@ pub unsafe extern "C" fn restore_context(ctx: *const Context) {
         "mov rbp, [rdi + 0x30]",
         "mov r8,  [rdi + 0x38]",
         "mov r9,  [rdi + 0x40]",
+        "mov r10, [rdi + 0x48]",
         "mov r11, [rdi + 0x50]",
         "mov r12, [rdi + 0x58]",
         "mov r13, [rdi + 0x60]",
         "mov r14, [rdi + 0x68]",
         "mov r15, [rdi + 0x70]",
-        // Load RSP pointing at interrupt frame [RIP, CS, RFLAGS]
-        "mov rsp, [rdi + 0x80]",
-        // Read saved RIP from interrupt frame into R10
-        "mov r10, [rsp]",
-        // Load RAX from context (rdi still valid)
+
+        // Restore RAX
         "mov rax, [rdi + 0x00]",
-        // Restore RDI from context (reads old rdi, writes new rdi — atomic)
+
+        // Restore RDI (last GP register)
         "mov rdi, [rdi + 0x28]",
-        // Skip the interrupt frame [RIP, CS, RFLAGS] = 24 bytes
-        "add rsp, 24",
-        "sti",
-        "jmp r10",
+
+        // Return via CPU hardware iretq
+        "iretq",
     );
 }
 
