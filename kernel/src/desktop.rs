@@ -1126,15 +1126,15 @@ pub fn run(display: &mut Display) -> ! {
     let mut alt_pressed: bool = false;
 
     let mut windows = alloc::vec![
-        Window { x: 200, y: 120, w: 560, h: 340, title: "Terminal", active: true, anim_scale: 256, is_open: true },
-        Window { x: 240, y: 150, w: 500, h: 320, title: "Web Browser", active: false, anim_scale: 256, is_open: true },
-        Window { x: 280, y: 170, w: 460, h: 280, title: "Network Mesh", active: false, anim_scale: 0, is_open: false },
-        Window { x: 300, y: 180, w: 520, h: 320, title: "Code Editor", active: false, anim_scale: 0, is_open: false },
-        Window { x: 220, y: 130, w: 440, h: 280, title: "File Manager", active: false, anim_scale: 0, is_open: false },
-        Window { x: 260, y: 160, w: 480, h: 300, title: "System Analytics", active: false, anim_scale: 0, is_open: false },
-        Window { x: 320, y: 190, w: 400, h: 240, title: "Media Player", active: false, anim_scale: 0, is_open: false },
-        Window { x: 340, y: 200, w: 420, h: 260, title: "3D Container", active: false, anim_scale: 0, is_open: false },
-        Window { x: 360, y: 210, w: 440, h: 270, title: "Security Shield", active: false, anim_scale: 0, is_open: false },
+        Window { x: 190, y: 80, w: 520, h: 380, title: "Terminal", active: true, anim_scale: 256, is_open: true },
+        Window { x: 730, y: 80, w: 480, h: 380, title: "File Manager", active: false, anim_scale: 256, is_open: true },
+        Window { x: 240, y: 120, w: 560, h: 340, title: "Web Browser", active: false, anim_scale: 0, is_open: false },
+        Window { x: 280, y: 140, w: 540, h: 340, title: "Code Editor", active: false, anim_scale: 0, is_open: false },
+        Window { x: 300, y: 150, w: 460, h: 280, title: "System Analytics", active: false, anim_scale: 0, is_open: false },
+        Window { x: 320, y: 160, w: 440, h: 280, title: "Media Player", active: false, anim_scale: 0, is_open: false },
+        Window { x: 340, y: 170, w: 420, h: 260, title: "3D Container", active: false, anim_scale: 0, is_open: false },
+        Window { x: 360, y: 180, w: 440, h: 270, title: "Security Shield", active: false, anim_scale: 0, is_open: false },
+        Window { x: 380, y: 190, w: 460, h: 280, title: "Network Mesh", active: false, anim_scale: 0, is_open: false },
     ];
 
     let mut focused_win: usize = 0;
@@ -1818,6 +1818,15 @@ pub fn run(display: &mut Display) -> ! {
                                     drag_info = Some((i, mx - win.x, my - win.y, 0)); // Mode 0: Move
                                     break;
                                 }
+                                // Check window body click (focus / bring to front)
+                                else if mx >= win.x
+                                    && mx < win.x + win.w as isize
+                                    && my >= win.y + 28
+                                    && my < win.y + win.h as isize
+                                {
+                                    drag_info = Some((i, mx - win.x, my - win.y, 2)); // Mode 2: Focus only
+                                    break;
+                                }
                             }
                         }
                     }
@@ -1826,11 +1835,27 @@ pub fn run(display: &mut Display) -> ! {
                         let win = windows.remove(i);
                         windows.push(win);
                         let new_idx = windows.len() - 1;
-                        drag_window = Some((new_idx as isize, ox, oy, mode));
+                        if mode != 2 {
+                            drag_window = Some((new_idx as isize, ox, oy, mode));
+                        }
                         if !windows[new_idx].active {
                             windows[focused_win].active = false;
                             focused_win = new_idx;
                             windows[new_idx].active = true;
+                        }
+                    }
+
+                    // Check Left Sidebar clicks
+                    if mx >= 16 && mx <= 176 && my >= 70 && my <= 300 {
+                        let item_idx = ((my - 70) / 34) as usize;
+                        let target_map = [4, 0, 3, 1, 6, 7]; // Map sidebar items to window index
+                        if item_idx < target_map.len() && target_map[item_idx] < windows.len() {
+                            let tw = target_map[item_idx];
+                            windows[tw].is_open = true;
+                            if windows[tw].anim_scale == 0 { windows[tw].anim_scale = 256; }
+                            windows[focused_win].active = false;
+                            windows[tw].active = true;
+                            focused_win = tw;
                         }
                     }
                 }

@@ -58,12 +58,12 @@ impl LoginGate {
 
         let mut auto_timer = 0u32;
 
-        while !self.auth_success || self.unlock_timer < 15 {
+        while !self.auth_success || self.unlock_timer < 10 {
             self.pulse = (self.pulse + 12) % 1024;
             self.rotation = (self.rotation + 2) % 360;
             auto_timer += 1;
 
-            if auto_timer > 45 && !self.auth_success {
+            if auto_timer > 600 && !self.auth_success {
                 self.try_unlock();
             }
 
@@ -76,10 +76,6 @@ impl LoginGate {
 
             // Process keyboard input
             while let Some(scancode) = crate::interrupts::KEYBOARD_QUEUE.lock().pop() {
-                if scancode & 0x80 == 0 {
-                    // Any key pressed -> instant authorization
-                    self.try_unlock();
-                }
                 match scancode {
                     0x2A | 0x36 => kbd_shift = true,
                     0xAA | 0xB6 => kbd_shift = false,
