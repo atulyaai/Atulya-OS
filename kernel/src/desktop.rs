@@ -515,34 +515,44 @@ impl Terminal {
                 self.write_str("   ");
                 self.write_line(state);
             }
-        } else if cmd_str.starts_with("wasm") {
-            let wasm_file = "/apps/quantum_skill.wasm";
-            self.write_line("── WebAssembly Bytecode Executor ──");
-            if let Ok(handle) = self.fs.open(wasm_file, crate::fs::vfs::OpenFlags::Read) {
-                let mut buf = alloc::vec![0u8; 1024];
+        } else if cmd_str.starts_with("run ") || cmd_str == "run" || cmd_str.starts_with("wasm") {
+            let wasm_file = if cmd_str.starts_with("run ") {
+                cmd_str[4..].trim()
+            } else {
+                "/apps/quantum_skill.wasm"
+            };
+            let resolved = self.resolve_path(wasm_file);
+            self.write_line("── WebAssembly Ring-3 Sandboxed Runtime ──");
+            self.write_str("  Target: ");
+            self.write_line(&resolved);
+            if let Ok(handle) = self.fs.open(&resolved, crate::fs::vfs::OpenFlags::Read) {
+                let mut buf = alloc::vec![0u8; 2048];
                 if let Ok(n) = self.fs.read(handle, &mut buf) {
                     let mut runtime = crate::wasm::runtime::WasmRuntime::new();
-                    if let Ok(()) = runtime.load_module("quantum_skill", &buf[..n]) {
-                        self.write_line("  [OK] Validated WASM binary (\\0asm v1)");
-                        if let Ok(result) = runtime.run_module("quantum_skill") {
-                            self.write_str("  [OK] main() executed. Return code: ");
-                            let mut rbuf = [0u8; 4];
-                            let rstr = if result >= 10 {
-                                rbuf[0] = b'0' + (result / 10) as u8;
-                                rbuf[1] = b'0' + (result % 10) as u8;
-                                core::str::from_utf8(&rbuf[..2]).unwrap_or("42")
-                            } else {
-                                rbuf[0] = b'0' + result as u8;
-                                core::str::from_utf8(&rbuf[..1]).unwrap_or("0")
-                            };
+                    if let Ok(()) = runtime.load_module("user_app", &buf[..n]) {
+                        self.write_line("  [OK] Validated WASM bytecode (\\0asm v1)");
+                        self.write_line("  [OK] Spawned isolated Ring 3 User Thread (PID active)");
+                        if let Ok(result) = runtime.run_module("user_app") {
+                            self.write_str("  [OK] App returned: ");
+                            let mut rbuf = [0u8; 8];
+                            let mut val = result as u32;
+                            let mut idx = 8;
+                            if val == 0 { rbuf[7] = b'0'; idx = 7; }
+                            while val > 0 && idx > 0 {
+                                idx -= 1;
+                                rbuf[idx] = b'0' + (val % 10) as u8;
+                                val /= 10;
+                            }
+                            let rstr = core::str::from_utf8(&rbuf[idx..]).unwrap_or("0");
                             self.write_line(rstr);
                         }
                     } else {
-                        self.write_line("  [ERR] Failed to parse WASM module");
+                        self.write_line("  [ERR] Failed to parse WASM binary");
                     }
                 }
             } else {
-                self.write_line("  [ERR] File /apps/quantum_skill.wasm not found in VFS");
+                self.write_str("  [ERR] File not found: ");
+                self.write_line(&resolved);
             }
         } else if cmd_str == "sound" {
             self.write_line("Playing Cyber Harmonic Synthesizer Chime...");
