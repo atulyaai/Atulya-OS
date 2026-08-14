@@ -347,7 +347,7 @@ impl<'a> Display<'a> {
         }
     }
 
-    /// Draw a rounded rectangle outline.
+    /// Draw a rounded rectangle outline with smooth subpixel anti-aliased corners.
     pub fn rect_rounded_outline(
         &mut self,
         x: usize,
@@ -357,22 +357,31 @@ impl<'a> Display<'a> {
         r: usize,
         color: Rgb,
     ) {
-        // Draw straight edges
-        self.rect(x + r, y, width.saturating_sub(2 * r), 1, color); // Top
-        self.rect(x + r, y + height - 1, width.saturating_sub(2 * r), 1, color); // Bottom
-        self.rect(x, y + r, 1, height.saturating_sub(2 * r), color); // Left
-        self.rect(x + width - 1, y + r, 1, height.saturating_sub(2 * r), color); // Right
+        if width <= 2 * r || height <= 2 * r || r == 0 {
+            return;
+        }
+        // Draw crisp straight edges
+        self.rect(x + r, y, width - 2 * r, 1, color); // Top
+        self.rect(x + r, y + height - 1, width - 2 * r, 1, color); // Bottom
+        self.rect(x, y + r, 1, height - 2 * r, color); // Left
+        self.rect(x + width - 1, y + r, 1, height - 2 * r, color); // Right
 
-        // Draw corners
-        for dy in 0..r {
-            for dx in 0..r {
-                let dist2 = dx * dx + dy * dy;
-                let r2 = r * r;
-                if dist2 >= r2.saturating_sub(r) && dist2 <= r2 + r {
-                    self.pixel(x + r - dx, y + r - dy, color);
-                    self.pixel(x + width - r + dx, y + r - dy, color);
-                    self.pixel(x + r - dx, y + height - r + dy, color);
-                    self.pixel(x + width - r + dx, y + height - r + dy, color);
+        // Draw smooth subpixel anti-aliased corners
+        let r_scaled = (r * 256) as isize;
+
+        for dy_i in 0..=r {
+            let dy = ((r - dy_i) * 256) as isize;
+            for dx_i in 0..=r {
+                let dx = ((r - dx_i) * 256) as isize;
+                let dist = crate::math::isqrt((dx * dx + dy * dy) as usize) as isize;
+                let diff = (dist - r_scaled).abs();
+
+                if diff < 256 {
+                    let alpha = ((256 - diff).min(255)) as u8;
+                    self.pixel_alpha(x + dx_i, y + dy_i, color, alpha);
+                    self.pixel_alpha(x + width - 1 - dx_i, y + dy_i, color, alpha);
+                    self.pixel_alpha(x + dx_i, y + height - 1 - dy_i, color, alpha);
+                    self.pixel_alpha(x + width - 1 - dx_i, y + height - 1 - dy_i, color, alpha);
                 }
             }
         }
@@ -443,27 +452,27 @@ impl<'a> Display<'a> {
     }
 
     /// Draw a circle outline using Bresenham's circle algorithm.
+    /// Draw a smooth subpixel anti-aliased circle outline.
     pub fn circle_outline(&mut self, cx: usize, cy: usize, radius: usize, color: Rgb) {
-        let mut x = radius as isize;
-        let mut y = 0isize;
-        let mut err = 0isize;
+        if radius == 0 { return; }
+        let r_scaled = (radius * 256) as isize;
+        let r_bound = (radius + 2) as isize;
 
-        while x >= y {
-            self.pixel_signed(cx as isize + x, cy as isize + y, color);
-            self.pixel_signed(cx as isize + y, cy as isize + x, color);
-            self.pixel_signed(cx as isize - y, cy as isize + x, color);
-            self.pixel_signed(cx as isize - x, cy as isize + y, color);
-            self.pixel_signed(cx as isize - x, cy as isize - y, color);
-            self.pixel_signed(cx as isize - y, cy as isize - x, color);
-            self.pixel_signed(cx as isize + y, cy as isize - x, color);
-            self.pixel_signed(cx as isize + x, cy as isize - y, color);
+        for dy_i in -r_bound..=r_bound {
+            let dy = dy_i * 256;
+            for dx_i in -r_bound..=r_bound {
+                let dx = dx_i * 256;
+                let dist = crate::math::isqrt((dx * dx + dy * dy) as usize) as isize;
+                let diff = (dist - r_scaled).abs();
 
-            y += 1;
-            if err <= 0 {
-                err += 2 * y + 1;
-            } else {
-                x -= 1;
-                err -= 2 * x - 2 * y + 1;
+                if diff < 256 {
+                    let alpha = ((256 - diff).min(255)) as u8;
+                    let px = cx as isize + dx_i;
+                    let py = cy as isize + dy_i;
+                    if px >= 0 && py >= 0 {
+                        self.pixel_alpha(px as usize, py as usize, color, alpha);
+                    }
+                }
             }
         }
     }
