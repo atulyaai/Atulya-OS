@@ -1,0 +1,11 @@
+/target/
+/vendor/
+/assets/boot_frames/
+/assets/boot/
+/tools/
+kernel/assets/preview/
+*.rgb
+*.bmp
+com1.txt
+qemu-serial.txt
+build_errors.json

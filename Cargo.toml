@@ -1,0 +1,30 @@
+[package]
+name = "atulyaos-runner"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "atulyaos-runner"
+path = "src/main.rs"
+
+[workspace]
+resolver = "3"
+members = ["kernel"]
+
+[dependencies]
+
+[build-dependencies]
+bootloader = { version = "0.11", default-features = false, features = ["bios"] }
+atulyaos-kernel = { path = "kernel", artifact = "bin", target = "x86_64-unknown-none" }
+
+[patch.crates-io]
+bootloader = { path = "vendor/bootloader-0.11.15" }
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = ["cfg(docsrs_dummy_build)"] }

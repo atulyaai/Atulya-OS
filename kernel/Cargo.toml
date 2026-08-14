@@ -1,0 +1,17 @@
+[package]
+name = "atulyaos-kernel"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+# Slow the boot splash frames so the screen can be screendumped from
+# QEMU during a visual check. Production builds should leave this off.
+boot-slow = []
+
+[dependencies]
+bootloader_api = "0.11"
+linked_list_allocator = "0.10"
+spin = "0.9"
+x86_64 = "0.15"
+pic8259 = "0.11"
+lazy_static = { version = "1", features = ["spin_no_std"] }
