@@ -75,10 +75,8 @@ pub fn calibrate() {
     let mut last_count = start_count;
     let mut reloads = 0u32;
 
-    // A reload is detected when the count jumps UP (it counts down, then
-    // wraps back to the divider value). Bound the loop generously in case
-    // something's off, so we never hang boot forever.
-    let mut safety = 20_000_000u32;
+    // Bound the loop reasonably so we never hang or cause thousands of VM-exits
+    let mut safety = 50_000u32;
     while reloads < RELOADS_TO_WAIT && safety > 0 {
         let count = read_pit_count();
         if count > last_count {
@@ -90,11 +88,9 @@ pub fn calibrate() {
 
     let end_tsc = rdtsc();
 
-    if safety == 0 {
-        // PIT read failed for some reason (unexpected hardware/hypervisor
-        // behavior) — fall back to a conservative assumed TSC frequency
-        // (1 GHz) rather than dividing by zero / leaving timing broken.
-        TSC_HZ.store(1_000_000_000, Ordering::Relaxed);
+    if safety == 0 || reloads == 0 {
+        // Fall back to standard modern CPU TSC frequency (2.5 GHz)
+        TSC_HZ.store(2_500_000_000, Ordering::Relaxed);
     } else {
         let elapsed_pit_counts = (start_count as u64) + (reloads as u64 - 1) * divider_estimate()
             + (divider_estimate() - last_count as u64);
