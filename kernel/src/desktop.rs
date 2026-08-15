@@ -1139,9 +1139,6 @@ struct Window {
 pub fn run(display: &mut Display) -> ! {
     unsafe { init_mouse() }
 
-    // Sovereign Voice Greeting
-    crate::voice::VOICE.lock().speak("Atulya Sovereign Core online. Systems nominal. Welcome, Atul.");
-
     let w = display.width();
     let h = display.height();
 
