@@ -1081,10 +1081,15 @@ impl Terminal {
             } else {
                 self.write_line(rest);
             }
+        } else if cmd_str.starts_with("ask ") || cmd_str.starts_with("atulya ") {
+            let prompt = if cmd_str.starts_with("ask ") { &cmd_str[4..] } else { &cmd_str[7..] };
+            let response = crate::ai_model::TANTRA_LLM.lock().infer(prompt);
+            self.write_line(&response);
+            crate::voice::VOICE.lock().speak(&response);
         } else {
-            self.write_str("atulyaos: ");
-            self.write_str(cmd_str);
-            self.write_line(": command not found");
+            let response = crate::ai_model::TANTRA_LLM.lock().infer(cmd_str);
+            self.write_line(&response);
+            crate::voice::VOICE.lock().speak(&response);
         }
 
         self.print_prompt();
@@ -1106,6 +1111,9 @@ struct Window {
 // ── Desktop entry point ─────────────────────────────────────────────
 pub fn run(display: &mut Display) -> ! {
     unsafe { init_mouse() }
+
+    // Sovereign Voice Greeting
+    crate::voice::VOICE.lock().speak("Atulya Sovereign Core online. Systems nominal. Welcome, Atul.");
 
     let w = display.width();
     let h = display.height();
