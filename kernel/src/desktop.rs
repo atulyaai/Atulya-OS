@@ -120,11 +120,6 @@ impl MouseState {
                 dy -= 256;
             }
 
-            // Discard invalid overflow packets
-            if flags & 0xC0 != 0 {
-                return false;
-            }
-
             self.buttons = flags & 0x07;
 
             self.x = (self.x + dx).max(0).min(w as isize - 1);
@@ -1158,15 +1153,15 @@ pub fn run(display: &mut Display) -> ! {
     let mut alt_pressed: bool = false;
 
     let mut windows = alloc::vec![
-        Window { x: 190, y: 80, w: 520, h: 380, title: "Terminal", active: true, anim_scale: 256, is_open: true },
-        Window { x: 730, y: 80, w: 480, h: 380, title: "File Manager", active: false, anim_scale: 256, is_open: true },
-        Window { x: 240, y: 120, w: 560, h: 340, title: "Web Browser", active: false, anim_scale: 0, is_open: false },
-        Window { x: 280, y: 140, w: 540, h: 340, title: "Code Editor", active: false, anim_scale: 0, is_open: false },
-        Window { x: 300, y: 150, w: 460, h: 280, title: "System Analytics", active: false, anim_scale: 0, is_open: false },
-        Window { x: 320, y: 160, w: 440, h: 280, title: "Media Player", active: false, anim_scale: 0, is_open: false },
-        Window { x: 340, y: 170, w: 420, h: 260, title: "3D Container", active: false, anim_scale: 0, is_open: false },
-        Window { x: 360, y: 180, w: 440, h: 270, title: "Security Shield", active: false, anim_scale: 0, is_open: false },
-        Window { x: 380, y: 190, w: 460, h: 280, title: "Network Mesh", active: false, anim_scale: 0, is_open: false },
+        Window { x: 190, y: 155, w: 520, h: 360, title: "Terminal", active: true, anim_scale: 256, is_open: true },
+        Window { x: 730, y: 155, w: 480, h: 360, title: "File Manager", active: false, anim_scale: 256, is_open: true },
+        Window { x: 240, y: 160, w: 560, h: 340, title: "Web Browser", active: false, anim_scale: 0, is_open: false },
+        Window { x: 280, y: 170, w: 540, h: 340, title: "Code Editor", active: false, anim_scale: 0, is_open: false },
+        Window { x: 300, y: 180, w: 460, h: 280, title: "System Analytics", active: false, anim_scale: 0, is_open: false },
+        Window { x: 320, y: 190, w: 440, h: 280, title: "Media Player", active: false, anim_scale: 0, is_open: false },
+        Window { x: 340, y: 200, w: 420, h: 260, title: "3D Container", active: false, anim_scale: 0, is_open: false },
+        Window { x: 360, y: 210, w: 440, h: 270, title: "Security Shield", active: false, anim_scale: 0, is_open: false },
+        Window { x: 380, y: 220, w: 460, h: 280, title: "Network Mesh", active: false, anim_scale: 0, is_open: false },
     ];
 
     let mut focused_win: usize = 0;
@@ -1193,15 +1188,39 @@ pub fn run(display: &mut Display) -> ! {
         display.gradient_rect_v(0, city_y, w, h - city_y, Rgb::new(2, 4, 8), Rgb::new(1, 2, 4));
         display.rect(0, city_y, w, 1, theme.accent.dim(40));
 
-        // ── 2. Top-Center AI Greeting & Waveform ─────────────────────────────
+        // ── 2. Top-Center Holographic Arc-Reactor AI Core ───────────────────
         let tick = crate::interrupts::tick_counter::get();
         let cx = w / 2;
-        crate::font::centered_text_aa(display, cx, 28, "GOOD EVENING, ATUL", Rgb::new(180, 230, 255));
-        crate::font::centered_text_aa(display, cx, 48, "ATULYA INTENT OS IS READY", theme.accent);
+        let cy = 56usize;
 
-        // Consolidated Float Harmonic Audio Waveform
-        let effects = crate::gpu::effects::EffectRenderer::new();
-        effects.draw_harmonic_waveform(display, cx, 80, 320, tick, theme.accent);
+        // Rotating Holographic Arc-Reactor Rings
+        let rot1 = ((tick * 3) % 360) as i32;
+        let rot2 = (360 - ((tick * 2) % 360)) as i32;
+
+        display.circle_outline(cx, cy, 32, theme.accent);
+        display.circle_outline(cx, cy, 42, theme.accent.dim(160));
+        display.circle_outline(cx, cy, 52, theme.accent.dim(100));
+
+        // Pulsating Arc Energy Nodes
+        for a in 0..6 {
+            let node_ang1 = (rot1 + a * 60) % 360;
+            let node_ang2 = (rot2 + a * 60) % 360;
+            let nx1 = (cx as isize + (crate::math::cosish(node_ang1) * 42) / 256) as usize;
+            let ny1 = (cy as isize + (crate::math::sinish(node_ang1) * 42) / 256) as usize;
+            let nx2 = (cx as isize + (crate::math::cosish(node_ang2) * 52) / 256) as usize;
+            let ny2 = (cy as isize + (crate::math::sinish(node_ang2) * 52) / 256) as usize;
+            display.pixel(nx1, ny1, Rgb::new(255, 255, 255));
+            display.pixel(nx2, ny2, Rgb::new(0, 255, 200));
+        }
+
+        // Inner glowing core
+        let pulse_r = (((crate::math::sinish((tick * 6) as i32) + 256) * 12) / 512) as usize + 8;
+        display.circle_filled(cx, cy, pulse_r, theme.accent.dim(180));
+        display.circle_filled(cx, cy, 6, Rgb::new(255, 255, 255));
+
+        // JARVIS Sovereign HUD Banner
+        crate::font::centered_text_aa(display, cx, 116, "✦ ATULYA SOVEREIGN INTELLIGENCE — ONLINE ✦", theme.accent);
+        crate::font::centered_text_aa(display, cx, 134, "Say or type: 'atulya <command>' | Press Alt+Space for Spotlight", Rgb::new(180, 220, 255));
 
         // ── 3. Left Navigation Sidebar ───────────────────────────────────────
         let side_w = 160;
