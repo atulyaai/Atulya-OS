@@ -4,7 +4,7 @@
 //!   - Magic Header: 'GGUF' (0x46554747)
 //!   - Architecture: qwen2 (0.5B parameters)
 //!   - Tensor Blocks: Q4_0 / Q8_0 / F16 quantized weights matrix unpacking
-//!   - Memory-Mapped Tensor Streaming on x86_64 CPU
+//!   - Memory-Mapped Tensor Streaming & Quantized Dot-Product on x86_64 CPU
 
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -73,13 +73,13 @@ impl GgufEngine {
         Ok(info)
     }
 
-    /// Load default sovereign Qwen-2.5 0.5B model profile.
+    /// Load default sovereign Qwen-2.5 0.5B model configuration.
     pub fn load_qwen_default(&mut self) -> GgufModelInfo {
         let info = GgufModelInfo {
             version: 3,
             tensor_count: 148,
-            metadata_kv_count: 24,
-            architecture: "qwen2.5-0.5b-instruct (Q4_K_M)",
+            metadata_kv_count: 28,
+            architecture: "qwen2 (0.5B Parameters)",
             context_length: 32768,
             embedding_dim: 896,
             is_loaded: true,
@@ -87,6 +87,27 @@ impl GgufEngine {
         self.active_model = Some(info.clone());
         info
     }
+
+    /// Compute Q4_0 quantized block dot-product vector multiplication.
+    pub fn dot_product_q4_0(&self, weights: &[u8], activations: &[i16]) -> i32 {
+        let mut sum = 0i32;
+        // Each 18-byte Q4_0 block has 2 bytes scale (fp16) + 16 bytes (32 nibbles)
+        let block_count = weights.len() / 18;
+        for b in 0..block_count {
+            let block = &weights[b * 18..(b + 1) * 18];
+            let scale = u16::from_le_bytes([block[0], block[1]]) as i32;
+            for i in 0..16 {
+                let byte = block[2 + i];
+                let lo = ((byte & 0x0F) as i32) - 8;
+                let hi = (((byte >> 4) & 0x0F) as i32) - 8;
+                let act_lo = activations.get(b * 32 + i * 2).copied().unwrap_or(0) as i32;
+                let act_hi = activations.get(b * 32 + i * 2 + 1).copied().unwrap_or(0) as i32;
+                sum += ((lo * act_lo + hi * act_hi) * scale.max(1)) / 256;
+            }
+        }
+        sum
+    }
 }
 
 pub static GGUF_LOADER: Mutex<GgufEngine> = Mutex::new(GgufEngine::new());
+pub static GGUF_ENGINE: Mutex<GgufEngine> = Mutex::new(GgufEngine::new());

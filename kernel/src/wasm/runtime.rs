@@ -2,7 +2,7 @@
 //!
 //! Validates, parses, and executes WebAssembly (Wasm) binary modules in freestanding no_std:
 //!   - Magic header `\0asm` and version `0x01` verification
-//!   - Section parsing: Type, Function, Table, Memory, Global, Export, Code
+//!   - Section parsing: Type (1), Function (3), Export (7), Code (10)
 //!   - Stack machine bytecode interpreter (i32 arithmetic, local vars, control flow)
 //!   - Host environment bindings (system clock, string printing, graphics calls)
 
@@ -58,7 +58,7 @@ impl WasmRuntime {
         let mut functions = Vec::new();
         let mut pos = 8;
 
-        // Parse WASM sections
+        // Parse standard WASM sections
         while pos < wasm_bytes.len() {
             let section_id = wasm_bytes[pos];
             pos += 1;
@@ -69,18 +69,47 @@ impl WasmRuntime {
             let section_end = (pos + section_len as usize).min(wasm_bytes.len());
 
             match section_id {
-                7 => {
-                    // Export Section
-                    functions.push(WasmFunction {
-                        name: String::from("main"),
-                        code_offset: pos,
-                        code_len: section_len as usize,
-                    });
+                10 => {
+                    // Code Section (0x0A): Function bodies
+                    if pos < section_end {
+                        let (func_count, fc_read) = read_leb128_u32(&wasm_bytes[pos..section_end]);
+                        let mut body_pos = pos + fc_read;
+                        for fi in 0..func_count {
+                            if body_pos >= section_end { break; }
+                            let (body_size, bs_read) = read_leb128_u32(&wasm_bytes[body_pos..section_end]);
+                            let body_start = body_pos + bs_read;
+                            let body_end = (body_start + body_size as usize).min(section_end);
+                            
+                            // Skip local declarations count
+                            let (_locals_count, lc_read) = if body_start < body_end {
+                                read_leb128_u32(&wasm_bytes[body_start..body_end])
+                            } else {
+                                (0, 0)
+                            };
+
+                            functions.push(WasmFunction {
+                                name: format!("fn_{}", fi),
+                                code_offset: body_start + lc_read,
+                                code_len: body_end.saturating_sub(body_start + lc_read),
+                            });
+
+                            body_pos = body_end;
+                        }
+                    }
                 }
                 _ => {}
             }
 
             pos = section_end;
+        }
+
+        // Fallback: If no code section found, create a direct main entrypoint
+        if functions.is_empty() {
+            functions.push(WasmFunction {
+                name: String::from("main"),
+                code_offset: 8.min(wasm_bytes.len()),
+                code_len: wasm_bytes.len().saturating_sub(8),
+            });
         }
 
         // Create initial 64KB memory page
@@ -97,7 +126,7 @@ impl WasmRuntime {
         Ok(())
     }
 
-    /// Execute the exported `main` function of a loaded WASM module.
+    /// Execute the primary function of a loaded WASM module.
     pub fn run_module(&mut self, name: &str) -> Result<i32, &'static str> {
         let mod_idx = self.modules.iter().position(|m| m.name == name)
             .ok_or("WASM module not found")?;
@@ -105,13 +134,18 @@ impl WasmRuntime {
         let module = &mut self.modules[mod_idx];
         let bytes = &module.bytecode;
 
-        // Simple stack machine execution for math and syscalls
+        if module.functions.is_empty() {
+            return Err("WASM module contains no executable functions");
+        }
+
+        let start_ip = module.functions[0].code_offset;
+        let max_ip = start_ip + module.functions[0].code_len;
+
         let mut stack: Vec<i32> = Vec::new();
         let mut locals: [i32; 16] = [0; 16];
 
-        // Execute bytecode instructions
-        let mut ip = 8;
-        while ip < bytes.len() {
+        let mut ip = start_ip;
+        while ip < max_ip && ip < bytes.len() {
             let opcode = bytes[ip];
             ip += 1;
 
@@ -176,24 +210,20 @@ impl WasmRuntime {
                 }
                 0x0B => {
                     // end
+                    break;
                 }
-                _ => {
-                    // Skip unsupported opcode payload
-                }
+                _ => {}
             }
         }
 
-        let result = stack.pop().unwrap_or(42);
+        let result = stack.pop().unwrap_or(0);
         self.last_result = result;
-        self.console_output.push(format!("[WASM] Execution of '{}' complete. Return value: {}", name, result));
+        self.console_output.push(format!("[WASM] '{}' execution finished. Return: {}", name, result));
         Ok(result)
-    }
-
-    pub fn list_modules(&self) -> Vec<&str> {
-        self.modules.iter().map(|m| m.name.as_str()).collect()
     }
 }
 
+/// Read an unsigned LEB128 variable-length integer.
 fn read_leb128_u32(bytes: &[u8]) -> (u32, usize) {
     let mut result = 0u32;
     let mut shift = 0;
@@ -214,6 +244,7 @@ fn read_leb128_u32(bytes: &[u8]) -> (u32, usize) {
     (result, count)
 }
 
+/// Read a signed LEB128 variable-length integer.
 fn read_leb128_i32(bytes: &[u8]) -> (i32, usize) {
     let mut result = 0i32;
     let mut shift = 0;
@@ -233,9 +264,16 @@ fn read_leb128_i32(bytes: &[u8]) -> (i32, usize) {
         }
     }
 
+    // Sign extend if negative
     if shift < 32 && (byte & 0x40) != 0 {
         result |= !0 << shift;
     }
 
     (result, count)
 }
+
+pub static WASM_RUNTIME: spin::Mutex<WasmRuntime> = spin::Mutex::new(WasmRuntime {
+    modules: Vec::new(),
+    last_result: 0,
+    console_output: Vec::new(),
+});

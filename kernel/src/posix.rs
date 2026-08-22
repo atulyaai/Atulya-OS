@@ -18,110 +18,106 @@ pub const LINUX_SYS_EXIT_GROUP: u64 = 231;
 pub struct PosixBridge;
 
 impl PosixBridge {
-    /// Dispatch a Linux x86_64 ABI syscall from Ring 3 user application.
-    pub unsafe fn dispatch(
+    pub fn dispatch(
         sys_num: u64,
         arg1: u64,
         arg2: u64,
         arg3: u64,
-        _arg4: u64,
+        arg4: u64,
         _arg5: u64,
         _arg6: u64,
     ) -> i64 {
-        match sys_num {
-            LINUX_SYS_READ => {
-                let fd = arg1 as i32;
-                let buf_ptr = arg2 as *mut u8;
-                let count = arg3 as usize;
-                if buf_ptr.is_null() || count == 0 { return 0; }
+        dispatch_posix_syscall(sys_num as usize, arg1 as usize, arg2 as usize, arg3 as usize, arg4 as usize) as i64
+    }
+}
 
-                if fd == 0 {
-                    // Stdin from keyboard queue
-                    let mut read_bytes = 0;
-                    while read_bytes < count {
-                        if let Some(ch) = crate::interrupts::KEYBOARD_QUEUE.lock().pop() {
-                            *buf_ptr.add(read_bytes) = ch;
-                            read_bytes += 1;
-                        } else {
-                            break;
-                        }
-                    }
-                    return read_bytes as i64;
-                }
-                -9 // EBADF
-            }
-            LINUX_SYS_WRITE => {
-                let fd = arg1 as i32;
-                let buf_ptr = arg2 as *const u8;
-                let count = arg3 as usize;
-                if buf_ptr.is_null() || count == 0 { return 0; }
+/// Verify that a buffer pointer and length reside in valid canonical user address space.
+#[inline]
+pub fn is_valid_user_ptr(ptr: usize, len: usize) -> bool {
+    if ptr < 0x1000 || len == 0 {
+        return false;
+    }
+    match ptr.checked_add(len) {
+        Some(end) => end <= 0x0000_7FFF_FFFF_FFFF, // Canonical Ring 3 user boundary
+        None => false,
+    }
+}
 
-                if fd == 1 || fd == 2 {
-                    // Stdout / Stderr to serial COM1 debug and console
-                    let slice = core::slice::from_raw_parts(buf_ptr, count.min(4096));
-                    if let Ok(s) = core::str::from_utf8(slice) {
-                        crate::serial::serial_write_str(s);
-                    }
-                    return count as i64;
-                }
-                -9 // EBADF
-            }
-            LINUX_SYS_OPEN => {
-                // Open path from VFS
-                let path_ptr = arg1 as *const u8;
-                if path_ptr.is_null() { return -14; } // EFAULT
-                
-                // Return a synthetic file descriptor
-                3 // First user fd
-            }
-            LINUX_SYS_CLOSE => 0,
-            LINUX_SYS_GETPID => 1001,
-            LINUX_SYS_BRK => {
-                // Dynamic memory expansion (heap allocation)
-                let req_brk = arg1 as usize;
-                if req_brk == 0 {
-                    return 0x4000_0000; // Default user break address
-                }
-                req_brk as i64
-            }
-            LINUX_SYS_MMAP => {
-                // Return anonymous user memory space
-                let len = arg2 as usize;
-                let layout = core::alloc::Layout::from_size_align(len.max(4096), 4096).unwrap();
-                let mem = alloc::alloc::alloc_zeroed(layout);
-                if mem.is_null() {
-                    -12 // ENOMEM
+pub fn sys_read(fd: usize, buf: usize, count: usize) -> isize {
+    if !is_valid_user_ptr(buf, count) {
+        return -14; // EFAULT
+    }
+    let buf_ptr = buf as *mut u8;
+    if fd == 0 {
+        // Stdin from keyboard queue
+        let mut read_bytes = 0;
+        x86_64::instructions::interrupts::without_interrupts(|| {
+            let mut q = crate::interrupts::KEYBOARD_QUEUE.lock();
+            while read_bytes < count {
+                if let Some(ch) = q.pop() {
+                    unsafe { *buf_ptr.add(read_bytes) = ch; }
+                    read_bytes += 1;
                 } else {
-                    mem as i64
+                    break;
                 }
             }
-            LINUX_SYS_UNAME => {
-                let buf = arg1 as *mut u8;
-                if !buf.is_null() {
-                    // Populate utsname structure: sysname, nodename, release, version, machine
-                    let sysname = b"AtulyaOS-LinuxABI\0";
-                    let nodename = b"axon-quantum\0";
-                    let release = b"6.8.0-atulya\0";
-                    let version = b"#1 SMP Sovereign Rust\0";
-                    let machine = b"x86_64\0";
+        });
+        return read_bytes as isize;
+    }
+    -9 // EBADF
+}
 
-                    core::ptr::copy_nonoverlapping(sysname.as_ptr(), buf.add(0), sysname.len());
-                    core::ptr::copy_nonoverlapping(nodename.as_ptr(), buf.add(65), nodename.len());
-                    core::ptr::copy_nonoverlapping(release.as_ptr(), buf.add(130), release.len());
-                    core::ptr::copy_nonoverlapping(version.as_ptr(), buf.add(195), version.len());
-                    core::ptr::copy_nonoverlapping(machine.as_ptr(), buf.add(260), machine.len());
-                }
-                0
-            }
-            LINUX_SYS_EXIT | LINUX_SYS_EXIT_GROUP => {
-                crate::serial::serial_write_line("POSIX Process Exited Cleanly.");
-                0
-            }
-            _ => {
-                crate::serial::serial_write_str("POSIX Syscall Unimplemented: ");
-                crate::serial::serial_write_hex(sys_num);
-                -38 // ENOSYS (Function not implemented)
+pub fn sys_write(fd: usize, buf: usize, count: usize) -> isize {
+    if !is_valid_user_ptr(buf, count) {
+        return -14; // EFAULT
+    }
+    let buf_ptr = buf as *const u8;
+    if fd == 1 || fd == 2 {
+        let slice = unsafe { core::slice::from_raw_parts(buf_ptr, count.min(8192)) };
+        if let Ok(s) = core::str::from_utf8(slice) {
+            crate::serial::serial_write_line(s);
+        }
+        return count as isize;
+    }
+    -9 // EBADF
+}
+
+pub fn dispatch_posix_syscall(sys_num: usize, arg1: usize, arg2: usize, arg3: usize, _arg4: usize) -> isize {
+    match sys_num as u64 {
+        LINUX_SYS_READ => sys_read(arg1, arg2, arg3),
+        LINUX_SYS_WRITE => sys_write(arg1, arg2, arg3),
+        LINUX_SYS_OPEN => 3, // Virtual standard file descriptor
+        LINUX_SYS_CLOSE => 0,
+        LINUX_SYS_GETPID => 100, // Ring 3 main process PID
+        LINUX_SYS_BRK => {
+            let addr = arg1;
+            if addr == 0 {
+                0x0000_7000_0000_0000 // Return current heap break base
+            } else {
+                addr as isize // Grow user heap
             }
         }
+        LINUX_SYS_UNAME => {
+            if !is_valid_user_ptr(arg1, 390) {
+                return -14; // EFAULT
+            }
+            let ptr = arg1 as *mut u8;
+            let uts_sysname = b"AtulyaOS\0";
+            let uts_release = b"1.0.0-sovereign\0";
+            let uts_version = b"Sovereign Kernel (Freestanding x86_64)\0";
+            let uts_machine = b"x86_64\0";
+            unsafe {
+                core::ptr::copy_nonoverlapping(uts_sysname.as_ptr(), ptr, uts_sysname.len());
+                core::ptr::copy_nonoverlapping(uts_release.as_ptr(), ptr.add(65), uts_release.len());
+                core::ptr::copy_nonoverlapping(uts_version.as_ptr(), ptr.add(130), uts_version.len());
+                core::ptr::copy_nonoverlapping(uts_machine.as_ptr(), ptr.add(195), uts_machine.len());
+            }
+            0
+        }
+        LINUX_SYS_EXIT | LINUX_SYS_EXIT_GROUP => {
+            crate::serial::serial_write_line("POSIX Process Exited.");
+            0
+        }
+        _ => -38, // ENOSYS (Function not implemented)
     }
 }

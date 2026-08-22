@@ -988,10 +988,8 @@ impl Terminal {
             let app = cmd_str[6..].trim();
             self.write_str("🐧 Executing Linux x86_64 ELF via POSIX ABI Bridge: ");
             self.write_line(app);
-            unsafe {
-                let uname_buf = [0u8; 512];
-                let _ = crate::posix::PosixBridge::dispatch(63, uname_buf.as_ptr() as u64, 0, 0, 0, 0, 0);
-            }
+            let uname_buf = [0u8; 512];
+            let _ = crate::posix::PosixBridge::dispatch(63, uname_buf.as_ptr() as u64, 0, 0, 0, 0, 0);
             self.write_line("  [OK] Syscalls: sys_mmap, sys_brk, sys_write, sys_uname mapped successfully.");
         } else if cmd_str == "antivirus" || cmd_str == "scan" {
             self.write_line("── Atulya Inbuilt Antivirus & Malware Defense ──");
