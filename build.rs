@@ -11,9 +11,12 @@ fn main() {
 
     if !kernel_path.exists() {
         panic!(
-            "AtulyaOS kernel ELF not found at {:?}.\n\
-             Build it first with:\n\
-             cargo build -p atulyaos-kernel --target x86_64-unknown-none --release",
+            "\n\n===============================================================\n\
+             AtulyaOS Kernel Binary not found at:\n\
+             {:?}\n\n\
+             To build the full OS, run:\n\
+               powershell -ExecutionPolicy Bypass -File .\\scripts\\build.ps1\n\
+             ===============================================================\n\n",
             kernel_path
         );
     }
