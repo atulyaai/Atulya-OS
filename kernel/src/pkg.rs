@@ -36,6 +36,8 @@ impl PackageManager {
                         "neural_nlp.wasm" => "AI / Neural NLP",
                         "crypto_vault.wasm" => "Cryptography",
                         "3d_renderer.wasm" => "Graphics / WebAssembly 3D",
+                        "weather.wasm" => "Decentralized Telemetry",
+                        "matrix_calc.wasm" => "Vector Arithmetic",
                         _ => "General Utility",
                     };
 
@@ -53,17 +55,19 @@ impl PackageManager {
         packages
     }
 
-    /// Install a new package into `/apps/<name>.wasm`.
+    /// Install a new package into `/apps/<name>.wasm` with a valid executable WASM binary.
     pub fn install(name: &str, fs: &mut RamFs) -> Result<String, &'static str> {
         let clean_name = name.trim().trim_end_matches(".wasm");
         let path = format!("/apps/{}.wasm", clean_name);
 
-        // Standard minimal valid WebAssembly binary with magic (\0asm) and version (0x01)
-        let sample_wasm: [u8; 16] = [
-            0x00, 0x61, 0x73, 0x6D, // \0asm
+        // Standard valid WebAssembly binary with Type, Function, Export ("main"), and Code sections
+        let sample_wasm: &[u8] = &[
+            0x00, 0x61, 0x73, 0x6D, // \0asm magic
             0x01, 0x00, 0x00, 0x00, // version 1
-            0x01, 0x04, 0x01, 0x60, 0x00, 0x00, // type section
-            0x03, 0x02, // function section
+            0x01, 0x05, 0x01, 0x60, 0x00, 0x01, 0x7F, // Type section: () -> i32
+            0x03, 0x02, 0x01, 0x00, // Function section: 1 function with type 0
+            0x07, 0x08, 0x01, 0x04, b'm', b'a', b'i', b'n', 0x00, 0x00, // Export section: export "main" fn 0
+            0x0A, 0x06, 0x01, 0x04, 0x00, 0x41, 0x2A, 0x0F, // Code section: local.count 0, i32.const 42, return
         ];
 
         match fs.open(&path, OpenFlags::Create) {
@@ -71,7 +75,7 @@ impl PackageManager {
                 let _ = fs.write(handle, &sample_wasm);
                 let _ = fs.close(handle);
                 let _ = fs.sync_to_disk();
-                Ok(format!("Package '{}' successfully installed to {} (ATA Synced)", clean_name, path))
+                Ok(format!("Package '{}' successfully installed to {} (ATA Synced & Executable)", clean_name, path))
             }
             Err(_) => Err("Failed to create package file on VFS"),
         }
