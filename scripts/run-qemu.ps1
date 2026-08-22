@@ -41,6 +41,7 @@ Write-Host "Boot image: $($imageInfo.FullName)"
 Write-Host "Boot image size: $([math]::Round($imageInfo.Length / 1MB, 2)) MB"
 Write-Host "Audio: Enabled (Intel HD Audio / DirectSound PCM Engine)" -ForegroundColor Green
 Write-Host "Storage: Primary IDE ATA 512MB Attached" -ForegroundColor Green
+Write-Host "Mouse/Keyboard: Click inside the QEMU window to grab input (Ctrl+Alt+G to release)" -ForegroundColor Yellow
 
 # Ensure 512MB ATA Disk exists
 $diskPath = Join-Path (Get-Location) "dist\atulyaos-disk-512m.bin"

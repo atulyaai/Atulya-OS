@@ -1131,8 +1131,6 @@ struct Window {
 
 // ── Desktop entry point ─────────────────────────────────────────────
 pub fn run(display: &mut Display) -> ! {
-    unsafe { init_mouse() }
-
     let w = display.width();
     let h = display.height();
 

@@ -131,44 +131,50 @@ impl LoginGate {
             });
             for mi in 0..mouse_count {
                 let b = mouse_buf[mi];
-                mouse_bytes[mouse_cycle as usize] = b;
-                mouse_cycle += 1;
-
-                if mouse_cycle == 3 {
-                    mouse_cycle = 0;
-                    let flags = mouse_bytes[0];
-                    if flags & 0x08 != 0 {
-                        let mut dx = mouse_bytes[1] as isize;
-                        let mut dy = mouse_bytes[2] as isize;
-                        if flags & 0x10 != 0 { dx -= 256; }
-                        if flags & 0x20 != 0 { dy -= 256; }
-
-                        let w = display.width() as isize;
-                        let h = display.height() as isize;
-                        mouse_x = (mouse_x + dx).max(0).min(w - 1);
-                        mouse_y = (mouse_y - dy).max(0).min(h - 1);
-
-                        let mouse_pressed = flags & 1 != 0;
-
-                        // Click on fingerprint scanner or submit button
-                        if mouse_pressed && !mouse_was_pressed {
-                            let cx = display.width() / 2;
-                            let cy = display.height() * 42 / 100;
-                            let dist2 = (mouse_x - cx as isize).pow(2) + (mouse_y - cy as isize).pow(2);
-                            if dist2 < 55 * 55 {
-                                // Biometric Touch Trigger
-                                self.try_biometric_unlock();
-                            }
-
-                            // Click on passcode submit button
-                            let btn_x = (cx + 125) as isize;
-                            let btn_y = (display.height() * 56 / 100) as isize;
-                            if (mouse_x - btn_x).abs() < 24 && (mouse_y - btn_y).abs() < 16 {
-                                self.try_unlock();
-                            }
-                        }
-                        mouse_was_pressed = mouse_pressed;
+                if mouse_cycle == 0 {
+                    if b & 0x08 == 0 {
+                        continue;
                     }
+                    mouse_bytes[0] = b;
+                    mouse_cycle = 1;
+                } else if mouse_cycle == 1 {
+                    mouse_bytes[1] = b;
+                    mouse_cycle = 2;
+                } else {
+                    mouse_bytes[2] = b;
+                    mouse_cycle = 0;
+
+                    let flags = mouse_bytes[0];
+                    let mut dx = mouse_bytes[1] as isize;
+                    let mut dy = mouse_bytes[2] as isize;
+                    if flags & 0x10 != 0 { dx -= 256; }
+                    if flags & 0x20 != 0 { dy -= 256; }
+
+                    let w = display.width() as isize;
+                    let h = display.height() as isize;
+                    mouse_x = (mouse_x + dx).max(0).min(w - 1);
+                    mouse_y = (mouse_y - dy).max(0).min(h - 1);
+
+                    let mouse_pressed = flags & 1 != 0;
+
+                    // Click on fingerprint scanner or submit button
+                    if mouse_pressed && !mouse_was_pressed {
+                        let cx = display.width() / 2;
+                        let cy = display.height() * 42 / 100;
+                        let dist2 = (mouse_x - cx as isize).pow(2) + (mouse_y - cy as isize).pow(2);
+                        if dist2 < 55 * 55 {
+                            // Biometric Touch Trigger
+                            self.try_biometric_unlock();
+                        }
+
+                        // Click on passcode submit button
+                        let btn_x = (cx + 125) as isize;
+                        let btn_y = (display.height() * 56 / 100) as isize;
+                        if (mouse_x - btn_x).abs() < 24 && (mouse_y - btn_y).abs() < 16 {
+                            self.try_unlock();
+                        }
+                    }
+                    mouse_was_pressed = mouse_pressed;
                 }
             }
 
