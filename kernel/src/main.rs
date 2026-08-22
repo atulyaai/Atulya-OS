@@ -42,6 +42,7 @@ pub mod gguf;
 pub mod security;
 pub mod antivirus;
 pub mod vision;
+pub mod db;
 
 use bootloader_api::{config::Mapping, entry_point, BootInfo, BootloaderConfig};
 use core::panic::PanicInfo;
@@ -122,6 +123,7 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     scheduler::init();
 
     ai::init();
+    db::init();
 
     unsafe {
         FB_BUFFER_PTR = display.buffer.as_mut_ptr();
