@@ -1801,10 +1801,6 @@ pub fn run(display: &mut Display) -> ! {
             }
         }
 
-        // Draw mouse cursor
-        display.circle_filled(mouse.x as usize, mouse.y as usize, 5, Rgb::new(255, 255, 255));
-        display.circle_outline(mouse.x as usize, mouse.y as usize, 5, theme.accent);
-
         // ── 7. Spotlight Global Command & Intent Launcher Modal ──────────────
         if spotlight_active && spotlight_anim < 256 {
             spotlight_anim = (spotlight_anim + 32).min(256);
@@ -1875,9 +1871,8 @@ pub fn run(display: &mut Display) -> ! {
             }
         }
 
-        // Draw mouse cursor
-        display.circle_filled(mouse.x as usize, mouse.y as usize, 5, Rgb::new(255, 255, 255));
-        display.circle_outline(mouse.x as usize, mouse.y as usize, 5, theme.accent);
+        // Draw high-visibility OS arrow mouse pointer
+        display.draw_mouse_cursor(mouse.x.max(0) as usize, mouse.y.max(0) as usize, theme.accent);
 
         // Swap buffers
         display.swap_buffers();

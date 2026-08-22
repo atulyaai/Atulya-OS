@@ -267,9 +267,8 @@ impl LoginGate {
             font::centered_text(display, cx, hint_y, "TOUCH FINGERPRINT OR PRESS ENTER TO UNLOCK", 1, LIGHT_CYAN.dim(180));
         }
 
-        // ── Draw Mouse Cursor ───────────────────────────────────────────────
-        display.circle_filled(mx as usize, my as usize, 4, WHITE_CYAN);
-        display.circle_outline(mx as usize, my as usize, 5, CYAN);
+        // ── Draw High-Visibility OS Arrow Mouse Pointer ──────────────────
+        display.draw_mouse_cursor(mx.max(0) as usize, my.max(0) as usize, CYAN);
     }
 
     fn draw_biometric_scanner(&self, display: &mut Display, cx: usize, cy: usize) {

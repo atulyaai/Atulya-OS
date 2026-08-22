@@ -732,4 +732,52 @@ impl<'a> Display<'a> {
             }
         }
     }
+
+    /// Draw a high-visibility, crisp OS arrow mouse pointer with drop shadow and neon tip.
+    pub fn draw_mouse_cursor(&mut self, mx: usize, my: usize, accent: Rgb) {
+        let cursor_bitmap: [&str; 16] = [
+            "X               ",
+            "XX              ",
+            "X.X             ",
+            "X..X            ",
+            "X...X           ",
+            "X....X          ",
+            "X.....X         ",
+            "X......X        ",
+            "X.......X       ",
+            "X.....XXXX      ",
+            "X..X..X         ",
+            "X.X X..X        ",
+            "XX   X..X       ",
+            "X     X..X      ",
+            "       XX       ",
+            "                ",
+        ];
+
+        let w = self.info.width;
+        let h = self.info.height;
+
+        for (row, line) in cursor_bitmap.iter().enumerate() {
+            for (col, ch) in line.chars().enumerate() {
+                let px = mx + col;
+                let py = my + row;
+                if px < w && py < h {
+                    match ch {
+                        'X' => {
+                            self.pixel(px, py, Rgb::new(0, 0, 0));
+                        }
+                        '.' => {
+                            self.pixel(px, py, Rgb::new(255, 255, 255));
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+
+        // Glowing neon tip
+        if mx < w && my < h {
+            self.pixel(mx, my, accent);
+        }
+    }
 }
