@@ -1143,7 +1143,8 @@ pub fn run(display: &mut Display) -> ! {
     let mut mouse_was_pressed = false;
     let mut drag_window: Option<(isize, isize, isize, u8)> = None;
 
-    // Spotlight global command & intent launcher state
+    // Windows 11 Start Menu & Spotlight state
+    let mut start_menu_open: bool = false;
     let mut spotlight_active: bool = false;
     let mut spotlight_anim: u16 = 0;
     let mut spotlight_query: alloc::string::String = alloc::string::String::new();
@@ -1172,204 +1173,124 @@ pub fn run(display: &mut Display) -> ! {
     loop {
         let theme = &THEMES[theme_idx % 4];
 
-        // ── 0. Global Top macOS-style Menu Bar ──────────────────────────────
+        // ── 1. Windows 11 Bloom Flow Silk Wallpaper ─────────────────────────
+        display.gradient_rect_v(0, 0, w, h, Rgb::new(4, 12, 28), Rgb::new(8, 22, 48));
+
+        // Flowing silk petals
         let tick = crate::interrupts::tick_counter::get();
-        display.rect_alpha(0, 0, w, 24, Rgb::new(10, 14, 24), 230);
-        display.rect(0, 24, w, 1, theme.accent.dim(80));
-
-        // ✦ Atulya Brand Logo & Menus
-        crate::font::draw_text(display, 12, 6, "✦ Atulya", 1, theme.accent);
-        crate::font::draw_text(display, 88, 6, "File", 1, Rgb::new(200, 220, 240));
-        crate::font::draw_text(display, 130, 6, "Edit", 1, Rgb::new(160, 180, 200));
-        crate::font::draw_text(display, 170, 6, "View", 1, Rgb::new(160, 180, 200));
-        crate::font::draw_text(display, 210, 6, "Apps", 1, Rgb::new(160, 180, 200));
-        crate::font::draw_text(display, 250, 6, "Settings", 1, Rgb::new(160, 180, 200));
-        crate::font::draw_text(display, 320, 6, "Help", 1, Rgb::new(160, 180, 200));
-
-        // Active Application name
-        if let Some(w_act) = windows.get(focused_win) {
-            crate::font::centered_text(display, w / 2, 6, w_act.title, 1, theme.text);
-        }
-
-        // Right Tray Items: Battery, Mesh, Audio, Live Clock
-        let time_sec = (tick / 60) % 60;
-        let time_min = (tick / 3600) % 60;
-        let time_hr = ((tick / 216000) % 12) + 1;
-        let time_str = alloc::format!("{:02}:{:02}:{:02} PM", time_hr, time_min, time_sec);
-        let tray_right = w.saturating_sub(280);
-        crate::font::draw_text(display, tray_right, 6, "⚡ 100%", 1, Rgb::new(0, 230, 118));
-        crate::font::draw_text(display, tray_right + 60, 6, "📶 Mesh", 1, theme.accent);
-        crate::font::draw_text(display, tray_right + 120, 6, "🔊 85%", 1, Rgb::new(255, 200, 80));
-        crate::font::draw_text(display, tray_right + 180, 6, &time_str, 1, Rgb::new(240, 240, 255));
-
-        // ── 1. Background Futuristic Obsidian Cyber Canvas ────────────────
-        display.gradient_rect_v(0, 25, w, h - 25, Rgb::new(1, 2, 4), Rgb::new(3, 4, 10));
-
-        // Background subtle starry sky
-        let star_seed = [45usize, 180, 360, 580, 820, 1040, 1260, 1480, 1700, 1860];
-        for (si, &sx) in star_seed.iter().enumerate() {
-            let sy = (si * 43 + 30) % (h * 60 / 100);
-            display.pixel(sx % w, sy, Rgb::new(140, 180, 220));
-        }
-
-        // Background dark mountain / skyline silhouette
-        let city_y = h * 68 / 100;
-        display.gradient_rect_v(0, city_y, w, h - city_y, Rgb::new(2, 4, 8), Rgb::new(1, 2, 4));
-        display.rect(0, city_y, w, 1, theme.accent.dim(40));
-
-        // ── 2. Top-Center Holographic Arc-Reactor AI Core ───────────────────
-        let cx = w / 2;
-        let cy = 68usize;
-
-        // Rotating Holographic Arc-Reactor Rings
-        let rot1 = ((tick * 3) % 360) as i32;
-        let rot2 = (360 - ((tick * 2) % 360)) as i32;
-
-        display.circle_outline(cx, cy, 32, theme.accent);
-        display.circle_outline(cx, cy, 42, theme.accent.dim(160));
-        display.circle_outline(cx, cy, 52, theme.accent.dim(100));
-
-        // Pulsating Arc Energy Nodes
-        for a in 0..6 {
-            let node_ang1 = (rot1 + a * 60) % 360;
-            let node_ang2 = (rot2 + a * 60) % 360;
-            let nx1 = (cx as isize + (crate::math::cosish(node_ang1) * 42) / 1024) as usize;
-            let ny1 = (cy as isize + (crate::math::sinish(node_ang1) * 42) / 1024) as usize;
-            let nx2 = (cx as isize + (crate::math::cosish(node_ang2) * 52) / 1024) as usize;
-            let ny2 = (cy as isize + (crate::math::sinish(node_ang2) * 52) / 1024) as usize;
-            display.pixel(nx1, ny1, Rgb::new(255, 255, 255));
-            display.pixel(nx2, ny2, Rgb::new(0, 255, 200));
-        }
-
-        // Inner glowing core
-        let pulse_r = (((crate::math::sinish((tick * 6) as i32) + 1024) * 12) / 2048) as usize + 8;
-        display.circle_filled(cx, cy, pulse_r, theme.accent.dim(180));
-        display.circle_filled(cx, cy, 6, Rgb::new(255, 255, 255));
-
-        // JARVIS Sovereign HUD Banner
-        crate::font::centered_text_aa(display, cx, 116, "✦ ATULYA SOVEREIGN INTELLIGENCE — ONLINE ✦", theme.accent);
-        crate::font::centered_text_aa(display, cx, 134, "Say or type: 'atulya <command>' | Press Alt+Space for Spotlight", Rgb::new(180, 220, 255));
-
-        // ── 3. Left Navigation Sidebar ───────────────────────────────────────
-        let side_w = 160;
-        display.rect_rounded_alpha(16, 20, side_w, h - 90, 8, Rgb::new(3, 10, 22), 200);
-        display.rect_rounded_outline(16, 20, side_w, h - 90, 8, theme.accent.dim(100));
-
-        // (A) ATULYA OS brand
-        display.circle_outline(36, 42, 10, theme.accent);
-        crate::font::draw_char(display, 32, 38, b'A', 1, theme.accent);
-        crate::font::draw_text(display, 52, 38, "ATULYA OS", 1, Rgb::new(200, 240, 255));
-        display.rect(26, 60, side_w - 20, 1, theme.accent.dim(80));
-
-        let nav_items = ["Atulya", "Workspace", "Projects", "Memory", "Skills", "Settings"];
-        for (ni, item) in nav_items.iter().enumerate() {
-            let ny = 80 + ni * 34;
-            display.circle_filled(32, ny + 4, 3, theme.accent.dim(180));
-            crate::font::draw_text(display, 44, ny, item, 1, Rgb::new(180, 220, 250));
-        }
-
-        // ── 4. Right Telemetry HUD Card ──────────────────────────────────────
-        let right_w = 210;
-        let right_x = w.saturating_sub(right_w + 16);
-        display.rect_rounded_alpha(right_x, 20, right_w, 230, 8, Rgb::new(3, 10, 22), 200);
-        display.rect_rounded_outline(right_x, 20, right_w, 230, 8, theme.accent.dim(100));
-
-        crate::font::draw_text(display, right_x + 14, 34, "ATULYA CORE STATUS", 1, theme.accent);
-        display.rect(right_x + 14, 48, right_w - 28, 1, theme.accent.dim(80));
-
-        let status_list = [
-            ("Memory", "ONLINE", Rgb::new(210, 80, 255)),
-            ("Voice",  "ONLINE", theme.accent),
-            ("Vision", "ONLINE", Rgb::new(0, 150, 255)),
-            ("Skills", "ONLINE", Rgb::new(255, 160, 40)),
-            ("Security", "SECURE", Rgb::new(0, 230, 118)),
-        ];
-
-        for (si, (label, val, dot_col)) in status_list.iter().enumerate() {
-            let sy = 60 + si * 22;
-            crate::font::draw_text(display, right_x + 14, sy, label, 1, Rgb::new(180, 210, 240));
-            crate::font::draw_text(display, right_x + 110, sy, val, 1, *dot_col);
-            display.circle_filled(right_x + 175, sy + 3, 3, *dot_col);
-        }
-
-        // Active Context Box
-        let act_y = 176;
-        display.rect(right_x + 14, act_y, right_w - 28, 1, theme.accent.dim(80));
-        crate::font::draw_text(display, right_x + 14, act_y + 8, "ACTIVE CONTEXT", 1, theme.accent.dim(180));
-        crate::font::draw_text(display, right_x + 14, act_y + 22, "No active context.", 1, Rgb::new(150, 190, 220));
-        crate::font::draw_text(display, right_x + 14, act_y + 34, "You're all set, Atul.", 1, Rgb::new(150, 190, 220));
-
-        // Circular Holographic (A) Insignia Badge
-        let badge_y = 265;
-        display.rect_rounded_alpha(right_x, badge_y, right_w, 100, 8, Rgb::new(3, 10, 22), 200);
-        display.rect_rounded_outline(right_x, badge_y, right_w, 100, 8, theme.accent.dim(100));
-        let badge_cx = right_x + right_w / 2;
-        let badge_cy = badge_y + 50;
-        display.dotted_circle_outline(badge_cx, badge_cy, 36, 3, theme.accent.dim(140));
-        display.circle_outline(badge_cx, badge_cy, 28, theme.accent);
-        crate::font::centered_text(display, badge_cx, badge_cy - 10, "A", 3, theme.accent);
-
-        // ── 5. Bottom Floating Glass Dock (13 Sovereign Apps) ────────────────
-        let dock_apps = [
-            ("Term", ">_"),
-            ("File", "DIR"),
-            ("Web",  "W3"),
-            ("Code", "</>"),
-            ("Stat", "CPU"),
-            ("Play", "AV"),
-            ("3D",   "BOX"),
-            ("Sec",  "SEC"),
-            ("Mesh", "NET"),
-            ("Calc", "123"),
-            ("Draw", "ART"),
-            ("Keys", "MUS"),
-            ("Conf", "SET"),
-        ];
-
-        let icon_w: usize = 44;
-        let icon_h: usize = 42;
-        let dock_total_w = dock_apps.len() * (icon_w + 8) + 16;
-        let dock_x = cx.saturating_sub(dock_total_w / 2);
-        let dock_y = h.saturating_sub(58);
-
-        display.rect_rounded_alpha(dock_x, dock_y, dock_total_w, 50, 10, Rgb::new(3, 10, 22), 230);
-        display.rect_rounded_outline(dock_x, dock_y, dock_total_w, 50, 10, theme.accent.dim(140));
-
-        for (i, (_name, _icon)) in dock_apps.iter().enumerate() {
-            let ix = dock_x + 8 + i * (icon_w + 8);
-            let iy = dock_y + 4;
-            let is_hovered = (mouse.x as usize >= ix && mouse.x as usize <= ix + icon_w)
-                && (mouse.y as usize >= iy && mouse.y as usize <= iy + icon_h);
-
-            let bg_alpha = if is_hovered { 240 } else { 150 };
-            display.rect_rounded_alpha(ix, iy, icon_w, icon_h, 6, Rgb::new(6, 24, 48), bg_alpha);
-            display.rect_rounded_outline(ix, iy, icon_w, icon_h, 6, if is_hovered { theme.accent } else { theme.accent.dim(100) });
-
-            if i < 9 {
-                let icon_slice = &DOCK_ICONS[i * (32 * 32 * 4)..(i + 1) * (32 * 32 * 4)];
-                display.blit_rgba_sprite(ix + (icon_w - 32) / 2, iy + 4, 32, 32, icon_slice);
-            } else {
-                display.rect_rounded_alpha(ix + 4, iy + 4, icon_w - 8, 32, 4, theme.accent.dim(160), 220);
-                crate::font::centered_text(display, ix + icon_w / 2, iy + 14, _icon, 1, Rgb::new(255, 255, 255));
+        for col in 0..w {
+            if col % 2 == 0 {
+                let wave1 = (crate::math::sinish(((col / 3) + (tick as usize / 4)) as i32) * 90) / 256;
+                let wave2 = (crate::math::cosish(((col / 5) + (tick as usize / 3)) as i32) * 70) / 256;
+                let y1 = (h as isize / 2) + wave1;
+                let y2 = (h as isize * 3 / 5) + wave2;
+                if y1 >= 0 && (y1 as usize) < h {
+                    display.pixel_alpha(col, y1 as usize, Rgb::new(0, 140, 255), 110);
+                    display.pixel_alpha(col, (y1 + 1) as usize, Rgb::new(0, 210, 255), 130);
+                }
+                if y2 >= 0 && (y2 as usize) < h {
+                    display.pixel_alpha(col, y2 as usize, Rgb::new(80, 60, 240), 90);
+                }
             }
         }
 
-        // Draw taskbar clock
-        let ticks = crate::interrupts::tick_counter::get();
-        let total_secs = (ticks / 18) as usize;
-        let hours   = ((total_secs / 3600) % 24) as usize;
-        let minutes = ((total_secs / 60) % 60) as usize;
-        let seconds = (total_secs % 60) as usize;
-        let time_str = [
-            b'0' + (hours / 10) as u8, b'0' + (hours % 10) as u8, b':',
-            b'0' + (minutes / 10) as u8, b'0' + (minutes % 10) as u8, b':',
-            b'0' + (seconds / 10) as u8, b'0' + (seconds % 10) as u8,
+        // ── 2. Windows 11 Desktop Icons (Left Side) ──────────────────────────
+        let desktop_icons = [
+            ("🖥️", "This PC", 0),
+            ("📁", "User Files", 1),
+            ("🌐", "Edge Browser", 2),
+            ("💻", "VS Code", 3),
+            ("🧮", "Calculator", 9),
+            ("🎨", "Paint Studio", 10),
+            ("⚙️", "Settings", 12),
+            ("🗑️", "Recycle Bin", 1),
         ];
-        let clk_x = (w as isize - 90) as usize;
-        let clk_y = 28;
-        for (i, &ch) in time_str.iter().enumerate() {
-            crate::font::draw_char(display, clk_x + i * 8, clk_y, ch, 1, theme.accent);
+
+        for (di, (icon, label, _win_id)) in desktop_icons.iter().enumerate() {
+            let dx = 24usize;
+            let dy = 24 + di * 68;
+            let is_hovered = (mouse.x as usize >= dx.saturating_sub(6) && mouse.x as usize <= dx + 76)
+                && (mouse.y as usize >= dy.saturating_sub(4) && mouse.y as usize <= dy + 58);
+            if is_hovered {
+                display.rect_rounded_alpha(dx.saturating_sub(6), dy.saturating_sub(4), 82, 62, 6, Rgb::new(255, 255, 255), 35);
+                display.rect_rounded_outline(dx.saturating_sub(6), dy.saturating_sub(4), 82, 62, 6, Rgb::new(255, 255, 255).dim(80));
+            }
+            crate::font::draw_text_aa(display, dx + 22, dy + 2, icon, Rgb::new(0, 180, 255));
+            crate::font::centered_text(display, dx + 35, dy + 32, label, 1, Rgb::new(245, 250, 255));
         }
+
+        // ── 3. Windows 11 Centered Taskbar ───────────────────────────────────
+        let tb_h = 48usize;
+        let tb_y = h.saturating_sub(tb_h);
+        display.rect_alpha(0, tb_y, w, tb_h, Rgb::new(24, 28, 36), 245);
+        display.rect(0, tb_y, w, 1, Rgb::new(55, 62, 78));
+
+        // Centered App Launcher
+        let tb_apps = [
+            ("🪟", "Start", 999),
+            ("🔍", "Search", 998),
+            ("🖥️", "Terminal", 0),
+            ("📁", "Files", 1),
+            ("🌐", "Edge", 2),
+            ("💻", "Code", 3),
+            ("🧮", "Calc", 9),
+            ("🎨", "Paint", 10),
+            ("🎹", "Synth", 11),
+            ("⚙️", "Settings", 12),
+        ];
+
+        let icon_w = 42usize;
+        let tb_group_w = tb_apps.len() * (icon_w + 6);
+        let tb_start_x = (w / 2).saturating_sub(tb_group_w / 2);
+
+        for (ti, (icon, _name, win_id)) in tb_apps.iter().enumerate() {
+            let bx = tb_start_x + ti * (icon_w + 6);
+            let by = tb_y + 4;
+            let is_hovered = (mouse.x as usize >= bx && mouse.x as usize <= bx + icon_w)
+                && (mouse.y as usize >= by && mouse.y as usize <= by + 40);
+
+            if is_hovered || (*win_id == 999 && start_menu_open) {
+                display.rect_rounded_alpha(bx, by, icon_w, 40, 6, Rgb::new(255, 255, 255), 40);
+            }
+
+            if *win_id == 999 {
+                // Windows 11 4-Square Logo
+                display.rect(bx + 12, by + 11, 7, 7, Rgb::new(0, 160, 255));
+                display.rect(bx + 21, by + 11, 7, 7, Rgb::new(0, 160, 255));
+                display.rect(bx + 12, by + 20, 7, 7, Rgb::new(0, 160, 255));
+                display.rect(bx + 21, by + 20, 7, 7, Rgb::new(0, 160, 255));
+            } else {
+                crate::font::draw_text_aa(display, bx + 11, by + 10, icon, Rgb::new(240, 245, 255));
+            }
+
+            // Running Indicator Pill underneath
+            if *win_id < 900 {
+                if let Some(pos) = windows.iter().position(|win| win.id == *win_id) {
+                    if windows[pos].is_open {
+                        let ind_w = if pos == focused_win { 18 } else { 6 };
+                        let ind_x = bx + (icon_w - ind_w) / 2;
+                        display.rect_rounded_alpha(ind_x, by + 37, ind_w, 3, 1, Rgb::new(0, 160, 255), 240);
+                    }
+                }
+            }
+        }
+
+        // Right Windows 11 System Tray
+        let tray_x = w.saturating_sub(260);
+        crate::font::draw_text(display, tray_x, tb_y + 16, "^", 1, Rgb::new(180, 190, 210));
+        crate::font::draw_text_aa(display, tray_x + 24, tb_y + 14, "📶", Rgb::new(0, 200, 255));
+        crate::font::draw_text_aa(display, tray_x + 54, tb_y + 14, "🔊", Rgb::new(240, 245, 255));
+        crate::font::draw_text_aa(display, tray_x + 84, tb_y + 14, "🔋", Rgb::new(0, 230, 118));
+
+        // Windows 11 Clock & Date Stack
+        let _time_sec = (tick / 60) % 60;
+        let time_min = (tick / 3600) % 60;
+        let time_hr = ((tick / 216000) % 12) + 1;
+        let clock_str = alloc::format!("{:02}:{:02} PM", time_hr, time_min);
+        let date_str = "23-08-2026";
+        crate::font::draw_text(display, tray_x + 120, tb_y + 8, &clock_str, 1, Rgb::new(240, 245, 255));
+        crate::font::draw_text(display, tray_x + 120, tb_y + 24, date_str, 1, Rgb::new(160, 180, 200));
+        crate::font::draw_text_aa(display, tray_x + 220, tb_y + 14, "🔔", Rgb::new(0, 160, 255));
 
         // Animate window easing transitions (200ms cubic scale & opacity)
         for win in windows.iter_mut() {
@@ -1422,31 +1343,62 @@ pub fn run(display: &mut Display) -> ! {
             );
             display.rect_rounded_outline(rx, ry, rw, rh, 8, border_color.dim(win.anim_scale));
 
-            // Title bar
-            if rh >= 28 {
+            // Windows 11 Mica Title bar
+            if rh >= 30 {
                 display.rect_rounded_alpha(
                     rx,
                     ry,
                     rw,
-                    28,
+                    30,
                     6,
-                    Rgb::new(24, 24, 30),
-                    (240 * win.anim_scale / 256) as u16,
+                    Rgb::new(32, 34, 42),
+                    (245 * win.anim_scale / 256) as u16,
                 );
+                display.rect(rx, ry + 29, rw, 1, Rgb::new(45, 48, 60));
 
-                // Title text
+                // Left: App Icon & Title
+                let icon_str = match win.title {
+                    "Terminal" => "🖥️",
+                    "File Manager" => "📁",
+                    "Web Browser" => "🌐",
+                    "Code Editor" => "💻",
+                    "System Analytics" => "📊",
+                    "Media Player" => "🎵",
+                    "3D Container" => "🕹️",
+                    "Security Shield" => "🛡️",
+                    "Network Mesh" => "📶",
+                    "Calculator Pro" => "🧮",
+                    "Paint Studio" => "🎨",
+                    "Cyber Synth Piano" => "🎹",
+                    "System Settings" => "⚙️",
+                    _ => "📄",
+                };
+                crate::font::draw_text_aa(display, rx + 10, ry + 7, icon_str, theme.accent);
                 for (ci, ch) in win.title.bytes().enumerate() {
-                    let tx = rx + 62 + ci * 8;
-                    if tx + 8 < rx + rw {
+                    let tx = rx + 38 + ci * 8;
+                    if tx + 8 < rx + rw.saturating_sub(110) {
                         crate::font::draw_char(display, tx, ry + 8, ch, 1, theme.text.dim(win.anim_scale));
                     }
                 }
 
-                // Traffic light window control buttons (macOS style)
-                if rw >= 64 {
-                    display.circle_filled(rx + 16, ry + 14, 5, Rgb::new(255, 95, 87).dim(win.anim_scale)); // Red (Close)
-                    display.circle_filled(rx + 32, ry + 14, 5, Rgb::new(254, 188, 46).dim(win.anim_scale)); // Yellow (Minimize)
-                    display.circle_filled(rx + 48, ry + 14, 5, Rgb::new(40, 200, 64).dim(win.anim_scale)); // Green (Maximize)
+                // Right: Windows 11 Control Buttons [ _ ] [ □ ] [ ✕ ]
+                if rw >= 120 {
+                    // Minimize [ _ ]
+                    let min_x = rx + rw - 105;
+                    display.rect(min_x + 12, ry + 16, 11, 2, Rgb::new(200, 210, 225));
+
+                    // Maximize [ □ ]
+                    let max_x = rx + rw - 70;
+                    display.rect_outline(max_x + 12, ry + 9, 11, 11, Rgb::new(200, 210, 225));
+
+                    // Close [ ✕ ]
+                    let close_x = rx + rw - 35;
+                    let is_close_hovered = (mouse.x as usize >= close_x && mouse.x as usize <= rx + rw)
+                        && (mouse.y as usize >= ry && mouse.y as usize <= ry + 30);
+                    if is_close_hovered {
+                        display.rect_rounded_alpha(close_x, ry, 35, 30, 4, Rgb::new(232, 17, 35), 240);
+                    }
+                    crate::font::draw_text(display, close_x + 13, ry + 8, "x", 1, if is_close_hovered { Rgb::new(255, 255, 255) } else { Rgb::new(200, 210, 225) });
                 }
             }
 
@@ -1871,6 +1823,80 @@ pub fn run(display: &mut Display) -> ! {
             }
         }
 
+        // ── 8. Windows 11 Start Menu Flyout Modal ────────────────────────────
+        if start_menu_open {
+            let sm_w = 540usize;
+            let sm_h = 470usize;
+            let sm_x = (w / 2).saturating_sub(sm_w / 2);
+            let sm_y = h.saturating_sub(48 + sm_h + 10);
+
+            // Frosted Mica Acrylic glass
+            display.rect_rounded_alpha(sm_x, sm_y, sm_w, sm_h, 10, Rgb::new(26, 29, 38), 248);
+            display.rect_rounded_outline(sm_x, sm_y, sm_w, sm_h, 10, Rgb::new(60, 68, 85));
+
+            // Top Search Bar
+            display.rect_rounded_alpha(sm_x + 24, sm_y + 20, sm_w - 48, 36, 6, Rgb::new(18, 20, 26), 230);
+            display.rect_rounded_outline(sm_x + 24, sm_y + 20, sm_w - 48, 36, 6, Rgb::new(45, 50, 65));
+            crate::font::draw_text_aa(display, sm_x + 36, sm_y + 28, "🔍", Rgb::new(140, 160, 190));
+            crate::font::draw_text(display, sm_x + 64, sm_y + 30, "Type here to search apps, settings, and files...", 1, Rgb::new(140, 160, 190));
+
+            // Pinned Section Header
+            crate::font::draw_text(display, sm_x + 28, sm_y + 72, "PINNED", 1, Rgb::new(220, 230, 245));
+            crate::font::draw_text(display, sm_x + sm_w - 110, sm_y + 72, "All apps >", 1, Rgb::new(0, 150, 255));
+
+            // 4x2 Pinned App Tiles
+            let pinned_apps = [
+                ("🖥️", "Terminal", 0),
+                ("📁", "Explorer", 1),
+                ("🌐", "Edge", 2),
+                ("💻", "VS Code", 3),
+                ("🧮", "Calculator", 9),
+                ("🎨", "Paint", 10),
+                ("🎹", "Synth", 11),
+                ("⚙️", "Settings", 12),
+            ];
+
+            for (pi, (icon, label, _id)) in pinned_apps.iter().enumerate() {
+                let row = pi / 4;
+                let col = pi % 4;
+                let px = sm_x + 36 + col * 120;
+                let py = sm_y + 96 + row * 72;
+
+                let is_hovered = (mouse.x as usize >= px.saturating_sub(6) && mouse.x as usize <= px + 96)
+                    && (mouse.y as usize >= py.saturating_sub(4) && mouse.y as usize <= py + 62);
+                if is_hovered {
+                    display.rect_rounded_alpha(px.saturating_sub(6), py.saturating_sub(4), 102, 66, 6, Rgb::new(255, 255, 255), 30);
+                }
+
+                crate::font::draw_text_aa(display, px + 36, py + 4, icon, Rgb::new(0, 160, 255));
+                crate::font::centered_text(display, px + 45, py + 34, label, 1, Rgb::new(220, 235, 250));
+            }
+
+            // Recommended Section
+            crate::font::draw_text(display, sm_x + 28, sm_y + 260, "RECOMMENDED", 1, Rgb::new(220, 230, 245));
+            let rec_files = [
+                ("📄", "kernel_spec.md", "Opened 10m ago"),
+                ("🖼️", "wallpaper.png", "Opened 1h ago"),
+                ("⚙️", "neural_network.wasm", "Compiled recently"),
+            ];
+            for (ri, (icon, fname, ftime)) in rec_files.iter().enumerate() {
+                let ry = sm_y + 284 + ri * 36;
+                display.rect_rounded_alpha(sm_x + 24, ry, sm_w - 48, 30, 4, Rgb::new(20, 23, 30), 200);
+                crate::font::draw_text_aa(display, sm_x + 34, ry + 6, icon, Rgb::new(0, 180, 255));
+                crate::font::draw_text(display, sm_x + 60, ry + 8, fname, 1, Rgb::new(240, 245, 255));
+                crate::font::draw_text(display, sm_x + sm_w - 160, ry + 8, ftime, 1, Rgb::new(140, 160, 180));
+            }
+
+            // Bottom User Profile & Power Bar
+            display.rect_alpha(sm_x, sm_y + sm_h - 52, sm_w, 52, Rgb::new(20, 22, 28), 250);
+            display.rect(sm_x, sm_y + sm_h - 52, sm_w, 1, Rgb::new(45, 50, 65));
+
+            crate::font::draw_text_aa(display, sm_x + 24, sm_y + sm_h - 38, "👤", Rgb::new(0, 160, 255));
+            crate::font::draw_text(display, sm_x + 54, sm_y + sm_h - 36, "Atul (Administrator)", 1, Rgb::new(240, 245, 255));
+
+            crate::font::draw_text_aa(display, sm_x + sm_w - 48, sm_y + sm_h - 38, "⏻", Rgb::new(255, 95, 87));
+        }
+
         // Draw high-visibility OS arrow mouse pointer
         display.draw_mouse_cursor(mouse.x.max(0) as usize, mouse.y.max(0) as usize, theme.accent);
 
@@ -2016,27 +2042,31 @@ pub fn run(display: &mut Display) -> ! {
                 let mx = mouse.x;
                 let my = mouse.y;
 
-                // Check Traffic Light window button clicks (Red: Close, Yellow: Minimize, Green: Maximize)
+                // Check Windows 11 window titlebar button clicks (Min, Max, Close at top right)
                 let mut action_idx: Option<(usize, u8)> = None;
                 if mouse_pressed && !mouse_was_pressed {
                     for (i, win) in windows.iter().enumerate().rev() {
                         if !win.is_open || win.anim_scale < 180 { continue; }
-                        let cy_btn = win.y as usize + 14;
-                        let dy = (my as isize - cy_btn as isize).abs();
-                        if dy < 8 {
-                            // Red (Close)
-                            if (mx as isize - (win.x as isize + 16)).abs() < 8 {
+                        let rx = win.x;
+                        let ry = win.y;
+                        let rw = win.w as isize;
+                        if my >= ry && my <= (ry + 30) {
+                            // Close button [ ✕ ]
+                            let close_x = rx + rw - 35;
+                            if mx >= close_x && mx <= (rx + rw) {
                                 action_idx = Some((i, 0));
                                 break;
                             }
-                            // Yellow (Minimize)
-                            else if (mx as isize - (win.x as isize + 32)).abs() < 8 {
-                                action_idx = Some((i, 1));
+                            // Maximize button [ □ ]
+                            let max_x = rx + rw - 70;
+                            if mx >= max_x && mx < close_x {
+                                action_idx = Some((i, 2));
                                 break;
                             }
-                            // Green (Maximize / Restore)
-                            else if (mx as isize - (win.x as isize + 48)).abs() < 8 {
-                                action_idx = Some((i, 2));
+                            // Minimize button [ _ ]
+                            let min_x = rx + rw - 105;
+                            if mx >= min_x && mx < max_x {
+                                action_idx = Some((i, 1));
                                 break;
                             }
                         }
@@ -2047,16 +2077,16 @@ pub fn run(display: &mut Display) -> ! {
                         windows[i].is_open = false;
                     } else if act == 2 {
                         // Maximize / Toggle full size
-                        if windows[i].w >= w - 100 {
+                        if windows[i].w >= w - 60 {
                             windows[i].w = 520;
                             windows[i].h = 360;
                             windows[i].x = 190;
                             windows[i].y = 155;
                         } else {
-                            windows[i].x = 24;
-                            windows[i].y = 32;
-                            windows[i].w = w.saturating_sub(48);
-                            windows[i].h = h.saturating_sub(100);
+                            windows[i].x = 10;
+                            windows[i].y = 10;
+                            windows[i].w = w.saturating_sub(20);
+                            windows[i].h = h.saturating_sub(68);
                         }
                     }
                 }
@@ -2209,19 +2239,89 @@ pub fn run(display: &mut Display) -> ! {
                     drag_window = None;
                 }
 
-                // Dock icon click / restore
-                let dock_apps_count = 13usize;
-                let icon_w_i: isize = 44;
-                let dock_total_w_i = (dock_apps_count * (44 + 8) + 16) as isize;
-                let dock_start_x_i = (w / 2) as isize - dock_total_w_i / 2;
-                let dock_y_i = h as isize - 58;
+                // Windows 11 Taskbar, Desktop Icons & Start Menu click handling
+                if mouse_pressed && !mouse_was_pressed {
+                    let tb_h_i = 48isize;
+                    let tb_y_i = h as isize - tb_h_i;
 
-                if mouse_pressed && !mouse_was_pressed && my >= dock_y_i && my <= dock_y_i + 50 {
-                    for i in 0..dock_apps_count {
-                        let ix = dock_start_x_i + 8 + i as isize * (icon_w_i + 8);
-                        if mx >= ix && mx <= ix + icon_w_i {
-                            // Focus or restore window by stable ID
-                            if let Some(pos) = windows.iter().position(|w| w.id == i) {
+                    // 1. Taskbar Centered App Launcher Clicks
+                    if my >= tb_y_i && my <= h as isize {
+                        let tb_apps_count = 10usize;
+                        let icon_w_i = 42isize;
+                        let tb_group_w_i = (tb_apps_count * (42 + 6)) as isize;
+                        let tb_start_x_i = (w as isize / 2) - tb_group_w_i / 2;
+
+                        let tb_win_ids = [999usize, 998, 0, 1, 2, 3, 9, 10, 11, 12];
+
+                        for (ti, &target_id) in tb_win_ids.iter().enumerate() {
+                            let bx = tb_start_x_i + ti as isize * (icon_w_i + 6);
+                            if mx >= bx && mx <= bx + icon_w_i {
+                                if target_id == 999 {
+                                    // Toggle Start Menu
+                                    start_menu_open = !start_menu_open;
+                                } else if target_id == 998 {
+                                    // Toggle Search / Spotlight
+                                    spotlight_active = !spotlight_active;
+                                    start_menu_open = false;
+                                } else {
+                                    // Launch / focus window
+                                    if let Some(pos) = windows.iter().position(|win| win.id == target_id) {
+                                        windows[pos].is_open = true;
+                                        if windows[pos].anim_scale == 0 {
+                                            windows[pos].anim_scale = 256;
+                                        }
+                                        windows[focused_win].active = false;
+                                        windows[pos].active = true;
+                                        focused_win = pos;
+                                    }
+                                    start_menu_open = false;
+                                }
+                            }
+                        }
+                    }
+
+                    // 2. Start Menu Pinned App Tile Clicks
+                    else if start_menu_open {
+                        let sm_w = 540isize;
+                        let sm_h = 470isize;
+                        let sm_x = (w as isize / 2) - sm_w / 2;
+                        let sm_y = h as isize - (48 + sm_h + 10);
+
+                        if mx >= sm_x && mx <= sm_x + sm_w && my >= sm_y && my <= sm_y + sm_h {
+                            let pinned_target_ids = [0usize, 1, 2, 3, 9, 10, 11, 12];
+                            for (pi, &target_id) in pinned_target_ids.iter().enumerate() {
+                                let row = (pi / 4) as isize;
+                                let col = (pi % 4) as isize;
+                                let px = sm_x + 36 + col * 120;
+                                let py = sm_y + 96 + row * 72;
+
+                                if mx >= px && mx <= px + 100 && my >= py && my <= py + 64 {
+                                    if let Some(pos) = windows.iter().position(|win| win.id == target_id) {
+                                        windows[pos].is_open = true;
+                                        if windows[pos].anim_scale == 0 {
+                                            windows[pos].anim_scale = 256;
+                                        }
+                                        windows[focused_win].active = false;
+                                        windows[pos].active = true;
+                                        focused_win = pos;
+                                    }
+                                    start_menu_open = false;
+                                    break;
+                                }
+                            }
+                        } else {
+                            // Clicked outside Start menu -> close Start menu
+                            start_menu_open = false;
+                        }
+                    }
+
+                    // 3. Desktop Icons Click (Left side)
+                    else if mx >= 18 && mx <= 110 && my >= 20 && my <= 560 {
+                        let icon_idx = ((my - 20) / 68) as usize;
+                        let desktop_target_ids = [0usize, 1, 2, 3, 9, 10, 12, 1];
+                        if icon_idx < desktop_target_ids.len() {
+                            let target_id = desktop_target_ids[icon_idx];
+                            if let Some(pos) = windows.iter().position(|win| win.id == target_id) {
                                 windows[pos].is_open = true;
                                 if windows[pos].anim_scale == 0 {
                                     windows[pos].anim_scale = 256;
