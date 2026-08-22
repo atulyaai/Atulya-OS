@@ -1159,6 +1159,10 @@ pub fn run(display: &mut Display) -> ! {
         Window { id: 6, x: 340, y: 200, w: 420, h: 260, title: "3D Container", active: false, anim_scale: 0, is_open: false },
         Window { id: 7, x: 360, y: 210, w: 440, h: 270, title: "Security Shield", active: false, anim_scale: 0, is_open: false },
         Window { id: 8, x: 380, y: 220, w: 460, h: 280, title: "Network Mesh", active: false, anim_scale: 0, is_open: false },
+        Window { id: 9, x: 400, y: 160, w: 340, h: 360, title: "Calculator Pro", active: false, anim_scale: 0, is_open: false },
+        Window { id: 10, x: 420, y: 170, w: 480, h: 340, title: "Paint Studio", active: false, anim_scale: 0, is_open: false },
+        Window { id: 11, x: 440, y: 180, w: 520, h: 320, title: "Cyber Synth Piano", active: false, anim_scale: 0, is_open: false },
+        Window { id: 12, x: 460, y: 190, w: 560, h: 370, title: "System Settings", active: false, anim_scale: 0, is_open: false },
     ];
 
     let mut focused_win: usize = 0;
@@ -1168,13 +1172,43 @@ pub fn run(display: &mut Display) -> ! {
     loop {
         let theme = &THEMES[theme_idx % 4];
 
+        // ── 0. Global Top macOS-style Menu Bar ──────────────────────────────
+        let tick = crate::interrupts::tick_counter::get();
+        display.rect_alpha(0, 0, w, 24, Rgb::new(10, 14, 24), 230);
+        display.rect(0, 24, w, 1, theme.accent.dim(80));
+
+        // ✦ Atulya Brand Logo & Menus
+        crate::font::draw_text(display, 12, 6, "✦ Atulya", 1, theme.accent);
+        crate::font::draw_text(display, 88, 6, "File", 1, Rgb::new(200, 220, 240));
+        crate::font::draw_text(display, 130, 6, "Edit", 1, Rgb::new(160, 180, 200));
+        crate::font::draw_text(display, 170, 6, "View", 1, Rgb::new(160, 180, 200));
+        crate::font::draw_text(display, 210, 6, "Apps", 1, Rgb::new(160, 180, 200));
+        crate::font::draw_text(display, 250, 6, "Settings", 1, Rgb::new(160, 180, 200));
+        crate::font::draw_text(display, 320, 6, "Help", 1, Rgb::new(160, 180, 200));
+
+        // Active Application name
+        if let Some(w_act) = windows.get(focused_win) {
+            crate::font::centered_text(display, w / 2, 6, w_act.title, 1, theme.text);
+        }
+
+        // Right Tray Items: Battery, Mesh, Audio, Live Clock
+        let time_sec = (tick / 60) % 60;
+        let time_min = (tick / 3600) % 60;
+        let time_hr = ((tick / 216000) % 12) + 1;
+        let time_str = alloc::format!("{:02}:{:02}:{:02} PM", time_hr, time_min, time_sec);
+        let tray_right = w.saturating_sub(280);
+        crate::font::draw_text(display, tray_right, 6, "⚡ 100%", 1, Rgb::new(0, 230, 118));
+        crate::font::draw_text(display, tray_right + 60, 6, "📶 Mesh", 1, theme.accent);
+        crate::font::draw_text(display, tray_right + 120, 6, "🔊 85%", 1, Rgb::new(255, 200, 80));
+        crate::font::draw_text(display, tray_right + 180, 6, &time_str, 1, Rgb::new(240, 240, 255));
+
         // ── 1. Background Futuristic Obsidian Cyber Canvas ────────────────
-        display.gradient_rect_v(0, 0, w, h, Rgb::new(1, 2, 4), Rgb::new(3, 4, 10));
+        display.gradient_rect_v(0, 25, w, h - 25, Rgb::new(1, 2, 4), Rgb::new(3, 4, 10));
 
         // Background subtle starry sky
         let star_seed = [45usize, 180, 360, 580, 820, 1040, 1260, 1480, 1700, 1860];
         for (si, &sx) in star_seed.iter().enumerate() {
-            let sy = (si * 43 + 20) % (h * 60 / 100);
+            let sy = (si * 43 + 30) % (h * 60 / 100);
             display.pixel(sx % w, sy, Rgb::new(140, 180, 220));
         }
 
@@ -1184,9 +1218,8 @@ pub fn run(display: &mut Display) -> ! {
         display.rect(0, city_y, w, 1, theme.accent.dim(40));
 
         // ── 2. Top-Center Holographic Arc-Reactor AI Core ───────────────────
-        let tick = crate::interrupts::tick_counter::get();
         let cx = w / 2;
-        let cy = 56usize;
+        let cy = 68usize;
 
         // Rotating Holographic Arc-Reactor Rings
         let rot1 = ((tick * 3) % 360) as i32;
@@ -1276,41 +1309,49 @@ pub fn run(display: &mut Display) -> ! {
         display.circle_outline(badge_cx, badge_cy, 28, theme.accent);
         crate::font::centered_text(display, badge_cx, badge_cy - 10, "A", 3, theme.accent);
 
-        // ── 5. Bottom Floating Glass Dock (9 Storyboard Apps) ────────────────
+        // ── 5. Bottom Floating Glass Dock (13 Sovereign Apps) ────────────────
         let dock_apps = [
             ("Term", ">_"),
-            ("Web",  "W3"),
-            ("Mesh", "NET"),
-            ("Code", "</>"),
             ("File", "DIR"),
+            ("Web",  "W3"),
+            ("Code", "</>"),
             ("Stat", "CPU"),
             ("Play", "AV"),
             ("3D",   "BOX"),
             ("Sec",  "SEC"),
+            ("Mesh", "NET"),
+            ("Calc", "123"),
+            ("Draw", "ART"),
+            ("Keys", "MUS"),
+            ("Conf", "SET"),
         ];
 
-        let icon_w: usize = 48;
+        let icon_w: usize = 44;
         let icon_h: usize = 42;
-        let dock_total_w = dock_apps.len() * (icon_w + 12) + 24;
+        let dock_total_w = dock_apps.len() * (icon_w + 8) + 16;
         let dock_x = cx.saturating_sub(dock_total_w / 2);
-        let dock_y = h.saturating_sub(60);
+        let dock_y = h.saturating_sub(58);
 
-        display.rect_rounded_alpha(dock_x, dock_y, dock_total_w, 52, 10, Rgb::new(3, 10, 22), 220);
-        display.rect_rounded_outline(dock_x, dock_y, dock_total_w, 52, 10, theme.accent.dim(120));
+        display.rect_rounded_alpha(dock_x, dock_y, dock_total_w, 50, 10, Rgb::new(3, 10, 22), 230);
+        display.rect_rounded_outline(dock_x, dock_y, dock_total_w, 50, 10, theme.accent.dim(140));
 
         for (i, (_name, _icon)) in dock_apps.iter().enumerate() {
-            let ix = dock_x + 12 + i * (icon_w + 12);
-            let iy = dock_y + 5;
+            let ix = dock_x + 8 + i * (icon_w + 8);
+            let iy = dock_y + 4;
             let is_hovered = (mouse.x as usize >= ix && mouse.x as usize <= ix + icon_w)
                 && (mouse.y as usize >= iy && mouse.y as usize <= iy + icon_h);
 
-            let bg_alpha = if is_hovered { 230 } else { 140 };
+            let bg_alpha = if is_hovered { 240 } else { 150 };
             display.rect_rounded_alpha(ix, iy, icon_w, icon_h, 6, Rgb::new(6, 24, 48), bg_alpha);
             display.rect_rounded_outline(ix, iy, icon_w, icon_h, 6, if is_hovered { theme.accent } else { theme.accent.dim(100) });
 
-            // Blit high-res 32x32 RGBA icon
-            let icon_slice = &DOCK_ICONS[i * (32 * 32 * 4)..(i + 1) * (32 * 32 * 4)];
-            display.blit_rgba_sprite(ix + (icon_w - 32) / 2, iy + 4, 32, 32, icon_slice);
+            if i < 9 {
+                let icon_slice = &DOCK_ICONS[i * (32 * 32 * 4)..(i + 1) * (32 * 32 * 4)];
+                display.blit_rgba_sprite(ix + (icon_w - 32) / 2, iy + 4, 32, 32, icon_slice);
+            } else {
+                display.rect_rounded_alpha(ix + 4, iy + 4, icon_w - 8, 32, 4, theme.accent.dim(160), 220);
+                crate::font::centered_text(display, ix + icon_w / 2, iy + 14, _icon, 1, Rgb::new(255, 255, 255));
+            }
         }
 
         // Draw taskbar clock
@@ -1395,18 +1436,17 @@ pub fn run(display: &mut Display) -> ! {
 
                 // Title text
                 for (ci, ch) in win.title.bytes().enumerate() {
-                    let tx = rx + 30 + ci * 8;
+                    let tx = rx + 62 + ci * 8;
                     if tx + 8 < rx + rw {
                         crate::font::draw_char(display, tx, ry + 8, ch, 1, theme.text.dim(win.anim_scale));
                     }
                 }
 
-                // Close button (red circle)
-                if rw >= 24 {
-                    let cx_btn = rx + rw - 18;
-                    let cy_btn = ry + 14;
-                    display.circle_filled(cx_btn, cy_btn, 6, Rgb::new(255, 80, 80).dim(win.anim_scale));
-                    display.circle_outline(cx_btn, cy_btn, 6, Rgb::new(200, 50, 50).dim(win.anim_scale));
+                // Traffic light window control buttons (macOS style)
+                if rw >= 64 {
+                    display.circle_filled(rx + 16, ry + 14, 5, Rgb::new(255, 95, 87).dim(win.anim_scale)); // Red (Close)
+                    display.circle_filled(rx + 32, ry + 14, 5, Rgb::new(254, 188, 46).dim(win.anim_scale)); // Yellow (Minimize)
+                    display.circle_filled(rx + 48, ry + 14, 5, Rgb::new(40, 200, 64).dim(win.anim_scale)); // Green (Maximize)
                 }
             }
 
@@ -1635,6 +1675,129 @@ pub fn run(display: &mut Display) -> ! {
             } else if win.title == "3D Container" {
                 let tick = crate::interrupts::tick_counter::get();
                 crate::game::GAME.lock().update_and_render(display, win.x as usize, win.y as usize, win.w, win.h, tick);
+            } else if win.title == "Calculator Pro" {
+                let wx = win.x as usize;
+                let wy = win.y as usize;
+                // LED Calculator Display
+                display.rect_rounded_alpha(wx + 12, wy + 34, win.w - 24, 46, 6, Rgb::new(10, 16, 26), 240);
+                display.rect_rounded_outline(wx + 12, wy + 34, win.w - 24, 46, 6, theme.accent.dim(120));
+                crate::font::draw_text(display, wx + 20, wy + 42, "FORMULA: 2048 * 8 + 512", 1, Rgb::new(120, 160, 200));
+                crate::font::draw_text_aa(display, wx + 20, wy + 58, "= 16,896 (INT64)", theme.accent);
+
+                // Keypad Matrix
+                let keys = [
+                    ["C", "(", ")", "/"],
+                    ["7", "8", "9", "*"],
+                    ["4", "5", "6", "-"],
+                    ["1", "2", "3", "+"],
+                    ["0", ".", "^", "="],
+                ];
+                for (row, rkeys) in keys.iter().enumerate() {
+                    for (col, &k) in rkeys.iter().enumerate() {
+                        let kx = wx + 14 + col * 72;
+                        let ky = wy + 90 + row * 48;
+                        if ky + 40 < wy + win.h {
+                            let is_op = k == "=" || k == "+" || k == "-" || k == "*" || k == "/";
+                            let bg_col = if is_op { theme.accent.dim(180) } else { Rgb::new(24, 30, 48) };
+                            display.rect_rounded_alpha(kx, ky, 64, 40, 4, bg_col, 220);
+                            crate::font::centered_text(display, kx + 32, ky + 14, k, 1, Rgb::new(255, 255, 255));
+                        }
+                    }
+                }
+            } else if win.title == "Paint Studio" {
+                let wx = win.x as usize;
+                let wy = win.y as usize;
+                // Toolbar & Color Palette
+                display.rect_rounded_alpha(wx + 10, wy + 32, win.w - 20, 32, 4, Rgb::new(22, 28, 44), 220);
+                let colors = [
+                    ("RED", Rgb::new(255, 60, 60)),
+                    ("GRN", Rgb::new(0, 230, 118)),
+                    ("BLU", Rgb::new(40, 140, 255)),
+                    ("CYN", Rgb::new(0, 255, 240)),
+                    ("YEL", Rgb::new(255, 220, 60)),
+                    ("PUR", Rgb::new(210, 80, 255)),
+                    ("WHT", Rgb::new(255, 255, 255)),
+                ];
+                for (ci, (name, col)) in colors.iter().enumerate() {
+                    let bx = wx + 16 + ci * 58;
+                    display.circle_filled(bx + 10, wy + 48, 8, *col);
+                    crate::font::draw_text(display, bx + 22, wy + 42, name, 1, Rgb::new(200, 220, 240));
+                }
+
+                // Drawing Canvas
+                let can_y = wy + 70;
+                let can_h = win.h.saturating_sub(80);
+                display.rect_rounded_alpha(wx + 10, can_y, win.w - 20, can_h, 6, Rgb::new(12, 14, 20), 240);
+                display.rect_rounded_outline(wx + 10, can_y, win.w - 20, can_h, 6, theme.accent.dim(80));
+
+                // Demo Cyber Vector Art
+                display.circle_outline(wx + win.w / 2, can_y + can_h / 2, 45, theme.accent);
+                display.circle_outline(wx + win.w / 2, can_y + can_h / 2, 30, Rgb::new(255, 220, 60));
+                crate::font::centered_text(display, wx + win.w / 2, can_y + can_h / 2 - 4, "CYBER VECTOR CANVAS", 1, Rgb::new(255, 255, 255));
+            } else if win.title == "Cyber Synth Piano" {
+                let wx = win.x as usize;
+                let wy = win.y as usize;
+                // Synth Display & Oscilloscope
+                display.rect_rounded_alpha(wx + 12, wy + 34, win.w - 24, 60, 6, Rgb::new(18, 14, 32), 240);
+                crate::font::draw_text_aa(display, wx + 20, wy + 42, "🎹 FORMANT SYNTHESIZER & PIANO SOUNDBOARD", Rgb::new(220, 100, 255));
+                crate::font::draw_text(display, wx + 20, wy + 62, "Direct PC Speaker & Intel HDA DMA Output | 44.1 kHz", 1, Rgb::new(160, 200, 240));
+
+                // Oscilloscope Wave
+                let tick = crate::interrupts::tick_counter::get();
+                for ox in 0..(win.w - 60) {
+                    let wave = (crate::math::sinish((ox as i32 * 12 + tick as i32 * 10) % 360) * 16) / 1024;
+                    let oy = (wy + 72) as isize + wave as isize;
+                    display.pixel(wx + 30 + ox, oy as usize, theme.accent);
+                }
+
+                // 7 Piano Keys
+                let notes = [
+                    ("C4", "261Hz"),
+                    ("D4", "294Hz"),
+                    ("E4", "329Hz"),
+                    ("F4", "349Hz"),
+                    ("G4", "392Hz"),
+                    ("A4", "440Hz"),
+                    ("B4", "493Hz"),
+                ];
+                let key_w = (win.w - 36) / 7;
+                for (ni, (note, hz)) in notes.iter().enumerate() {
+                    let kx = wx + 18 + ni * key_w;
+                    let ky = wy + 104;
+                    let kh = win.h.saturating_sub(118);
+                    display.rect_rounded_alpha(kx, ky, key_w - 6, kh, 6, Rgb::new(240, 245, 255), 230);
+                    display.rect_rounded_outline(kx, ky, key_w - 6, kh, 6, Rgb::new(120, 140, 180));
+                    crate::font::centered_text(display, kx + key_w / 2 - 3, ky + kh - 36, note, 1, Rgb::new(20, 30, 50));
+                    crate::font::centered_text(display, kx + key_w / 2 - 3, ky + kh - 20, hz, 1, Rgb::new(100, 120, 150));
+                }
+            } else if win.title == "System Settings" {
+                let wx = win.x as usize;
+                let wy = win.y as usize;
+                // Settings Header & Wizard Card
+                display.rect_rounded_alpha(wx + 12, wy + 34, win.w - 24, 48, 6, Rgb::new(20, 28, 48), 240);
+                crate::font::draw_text_aa(display, wx + 20, wy + 42, "⚙️ ATULYA SYSTEM CONTROL PANEL & ONBOARDING", theme.accent);
+                crate::font::draw_text(display, wx + 20, wy + 62, "User: Atul (Clearance AXON-7) | Local AI: Qwen-2.5 0.5B (Active)", 1, Rgb::new(180, 220, 255));
+
+                // Categories
+                let categories = [
+                    ("🎨 Themes", "Obsidian / Matrix / Neon / Aurora"),
+                    ("🔊 Sound", "Intel HDA / PC Speaker (85% Vol)"),
+                    ("🔒 Security", "ChaCha20 Vault & Biometrics (Armed)"),
+                    ("🧠 AI Persona", "Speech Rate 1.0x / Local Inference"),
+                    ("💾 Storage", "ATA 512MB IDE Disk (Formatted)"),
+                    ("ℹ️ About", "Atulya OS v1.0 Sovereign Microkernel"),
+                ];
+                for (ci, (cat, desc)) in categories.iter().enumerate() {
+                    let cy = wy + 92 + ci * 38;
+                    if cy + 32 < wy + win.h {
+                        display.rect_rounded_alpha(wx + 14, cy, win.w - 28, 34, 4, Rgb::new(16, 22, 36), 200);
+                        if ci == 0 {
+                            display.rect_rounded_outline(wx + 14, cy, win.w - 28, 34, 4, theme.accent);
+                        }
+                        crate::font::draw_text_aa(display, wx + 24, cy + 10, cat, theme.accent);
+                        crate::font::draw_text(display, wx + 180, cy + 12, desc, 1, Rgb::new(160, 190, 220));
+                    }
+                }
             }
         }
 
@@ -1994,21 +2157,21 @@ pub fn run(display: &mut Display) -> ! {
                 }
 
                 // Dock icon click / restore
-                let dock_apps_count = 9usize;
-                let icon_w_i: isize = 48;
-                let dock_total_w_i = (dock_apps_count * (48 + 12) + 24) as isize;
+                let dock_apps_count = 13usize;
+                let icon_w_i: isize = 44;
+                let dock_total_w_i = (dock_apps_count * (44 + 8) + 16) as isize;
                 let dock_start_x_i = (w / 2) as isize - dock_total_w_i / 2;
-                let dock_y_i = h as isize - 60;
+                let dock_y_i = h as isize - 58;
 
-                if mouse_pressed && !mouse_was_pressed && my >= dock_y_i && my <= dock_y_i + 52 {
+                if mouse_pressed && !mouse_was_pressed && my >= dock_y_i && my <= dock_y_i + 50 {
                     for i in 0..dock_apps_count {
-                        let ix = dock_start_x_i + 12 + i as isize * (icon_w_i + 12);
+                        let ix = dock_start_x_i + 8 + i as isize * (icon_w_i + 8);
                         if mx >= ix && mx <= ix + icon_w_i {
                             // Focus or restore window by stable ID
                             if let Some(pos) = windows.iter().position(|w| w.id == i) {
                                 windows[pos].is_open = true;
                                 if windows[pos].anim_scale == 0 {
-                                    windows[pos].anim_scale = 32;
+                                    windows[pos].anim_scale = 256;
                                 }
                                 windows[focused_win].active = false;
                                 windows[pos].active = true;
