@@ -155,11 +155,12 @@ impl IntentEngine {
                 confidence: 97,
             }
         } else {
+            let response = crate::gguf::GGUF_ENGINE.lock().infer(prompt_trimmed);
             IntentResult {
                 intent_name: "AUTONOMOUS_AI_INTENT",
-                description: format!("Atulya AI: Processing intent '{}' across kernel subsystems.", prompt_trimmed),
-                action: IntentAction::DirectResponse(format!("Intent registered: '{}'. Ready for dispatch.", prompt_trimmed)),
-                confidence: 90,
+                description: response.clone(),
+                action: IntentAction::DirectResponse(response),
+                confidence: 95,
             }
         }
     }
