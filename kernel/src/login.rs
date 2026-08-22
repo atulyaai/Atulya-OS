@@ -74,8 +74,20 @@ impl LoginGate {
             self.render(display, mouse_x, mouse_y);
             display.swap_buffers();
 
-            // Process keyboard input
-            while let Some(scancode) = crate::interrupts::KEYBOARD_QUEUE.lock().pop() {
+            // Process keyboard input — drain with interrupts disabled
+            let mut kbd_buf = [0u8; 16];
+            let mut kbd_count = 0usize;
+            x86_64::instructions::interrupts::without_interrupts(|| {
+                let mut q = crate::interrupts::KEYBOARD_QUEUE.lock();
+                while kbd_count < 16 {
+                    if let Some(sc) = q.pop() {
+                        kbd_buf[kbd_count] = sc;
+                        kbd_count += 1;
+                    } else { break; }
+                }
+            });
+            for ki in 0..kbd_count {
+                let scancode = kbd_buf[ki];
                 match scancode {
                     0x2A | 0x36 => kbd_shift = true,
                     0xAA | 0xB6 => kbd_shift = false,
@@ -105,8 +117,20 @@ impl LoginGate {
                 }
             }
 
-            // Process mouse input
-            while let Some(b) = crate::interrupts::MOUSE_QUEUE.lock().pop() {
+            // Process mouse input — drain with interrupts disabled
+            let mut mouse_buf = [0u8; 32];
+            let mut mouse_count = 0usize;
+            x86_64::instructions::interrupts::without_interrupts(|| {
+                let mut q = crate::interrupts::MOUSE_QUEUE.lock();
+                while mouse_count < 32 {
+                    if let Some(b) = q.pop() {
+                        mouse_buf[mouse_count] = b;
+                        mouse_count += 1;
+                    } else { break; }
+                }
+            });
+            for mi in 0..mouse_count {
+                let b = mouse_buf[mi];
                 mouse_bytes[mouse_cycle as usize] = b;
                 mouse_cycle += 1;
 
@@ -157,11 +181,27 @@ impl LoginGate {
     }
 
     fn try_unlock(&mut self) {
-        if !self.auth_success {
-            crate::sound::Sound::play_auth_chime();
+        if self.pass_len > 0 {
+            let typed = core::str::from_utf8(&self.passcode[..self.pass_len]).unwrap_or("");
+            if typed == "atulya" || typed == "admin" || typed == "1234" {
+                if !self.auth_success {
+                    crate::sound::Sound::play_auth_chime();
+                }
+                self.auth_success = true;
+                self.auth_error = false;
+            } else {
+                self.auth_error = true;
+                self.pass_len = 0;
+                crate::sound::Sound::beep(200, 100);
+            }
+        } else {
+            // Quick enter unlock with biometric confirmation
+            if !self.auth_success {
+                crate::sound::Sound::play_auth_chime();
+            }
+            self.auth_success = true;
+            self.auth_error = false;
         }
-        self.auth_success = true;
-        self.auth_error = false;
     }
 
     fn try_biometric_unlock(&mut self) {

@@ -1120,6 +1120,7 @@ impl Terminal {
 
 // ── Window state ────────────────────────────────────────────────────
 struct Window {
+    id: usize,
     x: isize,
     y: isize,
     w: usize,
@@ -1153,24 +1154,22 @@ pub fn run(display: &mut Display) -> ! {
     let mut alt_pressed: bool = false;
 
     let mut windows = alloc::vec![
-        Window { x: 190, y: 155, w: 520, h: 360, title: "Terminal", active: true, anim_scale: 256, is_open: true },
-        Window { x: 730, y: 155, w: 480, h: 360, title: "File Manager", active: false, anim_scale: 256, is_open: true },
-        Window { x: 240, y: 160, w: 560, h: 340, title: "Web Browser", active: false, anim_scale: 0, is_open: false },
-        Window { x: 280, y: 170, w: 540, h: 340, title: "Code Editor", active: false, anim_scale: 0, is_open: false },
-        Window { x: 300, y: 180, w: 460, h: 280, title: "System Analytics", active: false, anim_scale: 0, is_open: false },
-        Window { x: 320, y: 190, w: 440, h: 280, title: "Media Player", active: false, anim_scale: 0, is_open: false },
-        Window { x: 340, y: 200, w: 420, h: 260, title: "3D Container", active: false, anim_scale: 0, is_open: false },
-        Window { x: 360, y: 210, w: 440, h: 270, title: "Security Shield", active: false, anim_scale: 0, is_open: false },
-        Window { x: 380, y: 220, w: 460, h: 280, title: "Network Mesh", active: false, anim_scale: 0, is_open: false },
+        Window { id: 0, x: 190, y: 155, w: 520, h: 360, title: "Terminal", active: true, anim_scale: 256, is_open: true },
+        Window { id: 1, x: 730, y: 155, w: 480, h: 360, title: "File Manager", active: false, anim_scale: 256, is_open: true },
+        Window { id: 2, x: 240, y: 160, w: 560, h: 340, title: "Web Browser", active: false, anim_scale: 0, is_open: false },
+        Window { id: 3, x: 280, y: 170, w: 540, h: 340, title: "Code Editor", active: false, anim_scale: 0, is_open: false },
+        Window { id: 4, x: 300, y: 180, w: 460, h: 280, title: "System Analytics", active: false, anim_scale: 0, is_open: false },
+        Window { id: 5, x: 320, y: 190, w: 440, h: 280, title: "Media Player", active: false, anim_scale: 0, is_open: false },
+        Window { id: 6, x: 340, y: 200, w: 420, h: 260, title: "3D Container", active: false, anim_scale: 0, is_open: false },
+        Window { id: 7, x: 360, y: 210, w: 440, h: 270, title: "Security Shield", active: false, anim_scale: 0, is_open: false },
+        Window { id: 8, x: 380, y: 220, w: 460, h: 280, title: "Network Mesh", active: false, anim_scale: 0, is_open: false },
     ];
 
     let mut focused_win: usize = 0;
 
     let mut last_tick = crate::interrupts::tick_counter::get();
 
-    
     loop {
-        
         let theme = &THEMES[theme_idx % 4];
 
         // ── 1. Background Futuristic Obsidian Cyber Canvas ────────────────
@@ -1205,16 +1204,16 @@ pub fn run(display: &mut Display) -> ! {
         for a in 0..6 {
             let node_ang1 = (rot1 + a * 60) % 360;
             let node_ang2 = (rot2 + a * 60) % 360;
-            let nx1 = (cx as isize + (crate::math::cosish(node_ang1) * 42) / 256) as usize;
-            let ny1 = (cy as isize + (crate::math::sinish(node_ang1) * 42) / 256) as usize;
-            let nx2 = (cx as isize + (crate::math::cosish(node_ang2) * 52) / 256) as usize;
-            let ny2 = (cy as isize + (crate::math::sinish(node_ang2) * 52) / 256) as usize;
+            let nx1 = (cx as isize + (crate::math::cosish(node_ang1) * 42) / 1024) as usize;
+            let ny1 = (cy as isize + (crate::math::sinish(node_ang1) * 42) / 1024) as usize;
+            let nx2 = (cx as isize + (crate::math::cosish(node_ang2) * 52) / 1024) as usize;
+            let ny2 = (cy as isize + (crate::math::sinish(node_ang2) * 52) / 1024) as usize;
             display.pixel(nx1, ny1, Rgb::new(255, 255, 255));
             display.pixel(nx2, ny2, Rgb::new(0, 255, 200));
         }
 
         // Inner glowing core
-        let pulse_r = (((crate::math::sinish((tick * 6) as i32) + 256) * 12) / 512) as usize + 8;
+        let pulse_r = (((crate::math::sinish((tick * 6) as i32) + 1024) * 12) / 2048) as usize + 8;
         display.circle_filled(cx, cy, pulse_r, theme.accent.dim(180));
         display.circle_filled(cx, cy, 6, Rgb::new(255, 255, 255));
 
@@ -1724,8 +1723,22 @@ pub fn run(display: &mut Display) -> ! {
         // Swap buffers
         display.swap_buffers();
 
-        // Process keyboard queue
-        while let Some(scancode) = crate::interrupts::KEYBOARD_QUEUE.lock().pop() {
+        // Process keyboard queue — drain with interrupts disabled to prevent deadlock
+        let mut kbd_buf = [0u8; 32];
+        let mut kbd_count = 0usize;
+        x86_64::instructions::interrupts::without_interrupts(|| {
+            let mut q = crate::interrupts::KEYBOARD_QUEUE.lock();
+            while kbd_count < 32 {
+                if let Some(sc) = q.pop() {
+                    kbd_buf[kbd_count] = sc;
+                    kbd_count += 1;
+                } else {
+                    break;
+                }
+            }
+        });
+        for ki in 0..kbd_count {
+            let scancode = kbd_buf[ki];
             if scancode == 0x38 {
                 alt_pressed = true;
                 continue;
@@ -1828,8 +1841,22 @@ pub fn run(display: &mut Display) -> ! {
             }
         }
 
-        // Process mouse queue
-        while let Some(byte) = crate::interrupts::MOUSE_QUEUE.lock().pop() {
+        // Process mouse queue — drain with interrupts disabled to prevent deadlock
+        let mut mouse_buf = [0u8; 64];
+        let mut mouse_count = 0usize;
+        x86_64::instructions::interrupts::without_interrupts(|| {
+            let mut q = crate::interrupts::MOUSE_QUEUE.lock();
+            while mouse_count < 64 {
+                if let Some(b) = q.pop() {
+                    mouse_buf[mouse_count] = b;
+                    mouse_count += 1;
+                } else {
+                    break;
+                }
+            }
+        });
+        for mi in 0..mouse_count {
+            let byte = mouse_buf[mi];
             if mouse.handle_byte(byte, w, h) {
                 let mouse_pressed = mouse.buttons & 1 != 0;
                 let mx = mouse.x;
@@ -1907,14 +1934,16 @@ pub fn run(display: &mut Display) -> ! {
                     // Check Left Sidebar clicks
                     if mx >= 16 && mx <= 176 && my >= 70 && my <= 300 {
                         let item_idx = ((my - 70) / 34) as usize;
-                        let target_map = [4, 0, 3, 1, 6, 7]; // Map sidebar items to window index
-                        if item_idx < target_map.len() && target_map[item_idx] < windows.len() {
-                            let tw = target_map[item_idx];
-                            windows[tw].is_open = true;
-                            if windows[tw].anim_scale == 0 { windows[tw].anim_scale = 256; }
-                            windows[focused_win].active = false;
-                            windows[tw].active = true;
-                            focused_win = tw;
+                        let target_map = [4, 0, 3, 1, 6, 7]; // Map sidebar items to window id
+                        if item_idx < target_map.len() {
+                            let target_id = target_map[item_idx];
+                            if let Some(pos) = windows.iter().position(|w| w.id == target_id) {
+                                windows[pos].is_open = true;
+                                if windows[pos].anim_scale == 0 { windows[pos].anim_scale = 256; }
+                                windows[focused_win].active = false;
+                                windows[pos].active = true;
+                                focused_win = pos;
+                            }
                         }
                     }
                 }
@@ -1979,15 +2008,15 @@ pub fn run(display: &mut Display) -> ! {
                     for i in 0..dock_apps_count {
                         let ix = dock_start_x_i + 12 + i as isize * (icon_w_i + 12);
                         if mx >= ix && mx <= ix + icon_w_i {
-                            // Focus or restore window
-                            if i < windows.len() {
-                                windows[i].is_open = true;
-                                if windows[i].anim_scale == 0 {
-                                    windows[i].anim_scale = 32;
+                            // Focus or restore window by stable ID
+                            if let Some(pos) = windows.iter().position(|w| w.id == i) {
+                                windows[pos].is_open = true;
+                                if windows[pos].anim_scale == 0 {
+                                    windows[pos].anim_scale = 32;
                                 }
                                 windows[focused_win].active = false;
-                                windows[i].active = true;
-                                focused_win = i;
+                                windows[pos].active = true;
+                                focused_win = pos;
                             }
                         }
                     }

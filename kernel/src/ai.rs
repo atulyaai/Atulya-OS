@@ -62,6 +62,9 @@ impl IntentEngine {
     /// Parse user natural language prompt into executable OS intents.
     pub fn parse_intent(&mut self, prompt: &str) -> IntentResult {
         let prompt_trimmed = prompt.trim();
+        if self.query_history.len() >= 64 {
+            self.query_history.remove(0);
+        }
         self.query_history.push(String::from(prompt_trimmed));
         let lower = prompt_trimmed.to_ascii_lowercase();
 

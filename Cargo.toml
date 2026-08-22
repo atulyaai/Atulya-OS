@@ -14,11 +14,7 @@ members = ["kernel"]
 [dependencies]
 
 [build-dependencies]
-bootloader = { version = "0.11", default-features = false, features = ["bios"] }
-atulyaos-kernel = { path = "kernel", artifact = "bin", target = "x86_64-unknown-none" }
-
-[patch.crates-io]
-bootloader = { path = "vendor/bootloader-0.11.15" }
+bootloader = { version = "0.11.17", default-features = false, features = ["bios"] }
 
 [profile.dev]
 panic = "abort"

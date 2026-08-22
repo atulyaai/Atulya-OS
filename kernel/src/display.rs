@@ -1,4 +1,20 @@
-use bootloader_api::info::{FrameBufferInfo, PixelFormat};
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum PixelFormat {
+    Unknown,
+    Rgb,
+    Bgr,
+    U8,
+}
+
+#[derive(Clone, Copy)]
+pub struct FrameBufferInfo {
+    pub byte_len: usize,
+    pub width: usize,
+    pub height: usize,
+    pub stride: usize,
+    pub pixel_format: PixelFormat,
+    pub bytes_per_pixel: usize,
+}
 
 #[derive(Clone, Copy)]
 pub struct Rgb {

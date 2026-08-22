@@ -1,8 +1,8 @@
 //! voice.rs — Formant Voice & Speech Synthesizer for Atulya OS.
 //!
 //! Generates audible voice speech using dual output pipelines:
-//!   1. Direct PIT Channel 2 / PC Speaker (Port 0x42/0x61) for universal hardware audio
-//!   2. 16-bit 44.1kHz PCM Audio Stream Buffer for Intel HDA / AC97
+//!   1. Direct PIT Channel 2 / PC Speaker (Port 0x42/0x61) with real calibrated phoneme delays
+//!   2. 16-bit 22.05kHz PCM Audio Stream Buffer for Intel HDA / AC97
 
 use alloc::vec::Vec;
 use spin::Mutex;
@@ -27,36 +27,38 @@ impl VoiceSynthesizer {
 
         for ch in text.to_ascii_lowercase().bytes() {
             let (f1, f2, duration_ms) = match ch {
-                b'a' => (730, 1090, 40),
-                b'e' => (530, 1840, 35),
-                b'i' => (270, 2290, 35),
-                b'o' => (570, 840, 40),
-                b'u' => (300, 870, 40),
-                b'r' | b'l' => (400, 1300, 30),
-                b's' | b'z' => (200, 3000, 25),
-                b't' | b'd' => (350, 1700, 20),
-                b'm' | b'n' => (250, 1000, 30),
-                b' ' => (0, 0, 20),
-                _ => (450, 1500, 25),
+                b'a' => (730, 1090, 45),
+                b'e' => (530, 1840, 40),
+                b'i' => (270, 2290, 40),
+                b'o' => (570, 840, 45),
+                b'u' => (300, 870, 45),
+                b'r' | b'l' => (400, 1300, 35),
+                b's' | b'z' => (200, 3000, 30),
+                b't' | b'd' => (350, 1700, 25),
+                b'm' | b'n' => (250, 1000, 35),
+                b' ' => (0, 0, 30),
+                _ => (450, 1500, 30),
             };
 
             let samples_count = (sample_rate * duration_ms) / 1000;
             if f1 == 0 {
                 crate::sound::Sound::stop_tone();
                 pcm.extend((0..samples_count).map(|_| 0i16));
+                crate::timer::delay_ms(duration_ms as u32);
             } else {
-                // Pulse physical PC speaker at formant pitch
+                // Pulse physical PC speaker at formant pitch with audible duration
                 crate::sound::Sound::play_tone(f1 as u32);
                 for i in 0..samples_count {
-                    let phase1 = (i * f1 * 256 / sample_rate) as i32;
-                    let phase2 = (i * f2 * 256 / sample_rate) as i32;
+                    let phase1 = ((i * f1 * 360) / sample_rate) as i32;
+                    let phase2 = ((i * f2 * 360) / sample_rate) as i32;
 
                     let wave1 = crate::math::sinish(phase1);
                     let wave2 = crate::math::sinish(phase2);
 
-                    let sample = ((wave1 * 6000 + wave2 * 3000) / 256) as i16;
+                    let sample = ((wave1 * 14000 + wave2 * 7000) / 1024) as i16;
                     pcm.push(sample);
                 }
+                crate::timer::delay_ms(duration_ms as u32);
             }
         }
         crate::sound::Sound::stop_tone();
