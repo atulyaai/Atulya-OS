@@ -2021,22 +2021,80 @@ pub fn run(display: &mut Display) -> ! {
                 let mx = mouse.x;
                 let my = mouse.y;
 
-                // Check close button clicks
-                let mut close_idx: Option<usize> = None;
-                {
-                    for (i, win) in windows.iter().enumerate() {
+                // Check Traffic Light window button clicks (Red: Close, Yellow: Minimize, Green: Maximize)
+                let mut action_idx: Option<(usize, u8)> = None;
+                if mouse_pressed && !mouse_was_pressed {
+                    for (i, win) in windows.iter().enumerate().rev() {
                         if !win.is_open || win.anim_scale < 180 { continue; }
-                        let cx_btn = win.x as usize + win.w - 18;
                         let cy_btn = win.y as usize + 14;
-                        let dx = mx as isize - cx_btn as isize;
-                        let dy = my as isize - cy_btn as isize;
-                        if dx * dx + dy * dy < 64 && mouse_pressed && !mouse_was_pressed {
-                            close_idx = Some(i);
+                        let dy = (my as isize - cy_btn as isize).abs();
+                        if dy < 8 {
+                            // Red (Close)
+                            if (mx as isize - (win.x as isize + 16)).abs() < 8 {
+                                action_idx = Some((i, 0));
+                                break;
+                            }
+                            // Yellow (Minimize)
+                            else if (mx as isize - (win.x as isize + 32)).abs() < 8 {
+                                action_idx = Some((i, 1));
+                                break;
+                            }
+                            // Green (Maximize / Restore)
+                            else if (mx as isize - (win.x as isize + 48)).abs() < 8 {
+                                action_idx = Some((i, 2));
+                                break;
+                            }
                         }
                     }
                 }
-                if let Some(i) = close_idx {
-                    windows[i].is_open = false;
+                if let Some((i, act)) = action_idx {
+                    if act == 0 || act == 1 {
+                        windows[i].is_open = false;
+                    } else if act == 2 {
+                        // Maximize / Toggle full size
+                        if windows[i].w >= w - 100 {
+                            windows[i].w = 520;
+                            windows[i].h = 360;
+                            windows[i].x = 190;
+                            windows[i].y = 155;
+                        } else {
+                            windows[i].x = 24;
+                            windows[i].y = 32;
+                            windows[i].w = w.saturating_sub(48);
+                            windows[i].h = h.saturating_sub(100);
+                        }
+                    }
+                }
+
+                // Interactive Piano Soundboard Click
+                if mouse_pressed && !mouse_was_pressed {
+                    for win in &windows {
+                        if win.is_open && win.title == "Cyber Synth Piano" {
+                            let wx = win.x as usize;
+                            let wy = win.y as usize;
+                            let ky = wy + 104;
+                            let kh = win.h.saturating_sub(118);
+                            if mx >= wx as isize + 18 && mx <= wx as isize + (win.w - 18) as isize
+                                && my >= ky as isize && my <= (ky + kh) as isize
+                            {
+                                let key_w = (win.w - 36) / 7;
+                                let key_idx = ((mx as usize - (wx + 18)) / key_w).min(6);
+                                let freqs = [261u32, 294, 329, 349, 392, 440, 493];
+                                crate::sound::Sound::play_tone(freqs[key_idx]);
+                            }
+                        } else if win.is_open && win.title == "System Settings" {
+                            let wx = win.x as usize;
+                            let wy = win.y as usize;
+                            if mx >= wx as isize + 14 && mx <= wx as isize + (win.w - 14) as isize
+                                && my >= (wy + 92) as isize && my <= (wy + 92 + 38) as isize
+                            {
+                                theme_idx = (theme_idx + 1) % 4;
+                                crate::db::DB.lock().set_int("system.theme", theme_idx as i64);
+                            }
+                        }
+                    }
+                } else if !mouse_pressed && mouse_was_pressed {
+                    crate::sound::Sound::stop_tone();
                 }
 
                 // Start dragging on title bar or resizing on bottom-right corner
