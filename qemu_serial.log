@@ -1,0 +1,16 @@
+INFO : Framebuffer info: FrameBufferInfo { byte_len: 2764800, width: 1280, height: 720, pixel_format: Bgr, bytes_per_pixel: 3, stride: 1280 }
+INFO : 4th Stage
+INFO : BiosInfo { stage_4: Region { start: 130000, len: 252c0 }, kernel: Region { start: 1000000, len: de668 }, ramdisk: Region { start: 10df000, len: 0 }, config_file: Region { start: 10df000, len: d3 }, last_used_addr: 10df0d2, framebuffer: BiosFramebufferInfo { region: Region { start: fd000000, len: 2a3000 }, width: 500, height: 2d0, bytes_per_pixel: 3, stride: 500, pixel_format: Bgr }, memory_map_addr: 12114, memory_map_len: 7 }
+INFO : BIOS boot
+INFO : Elf file loaded at Pointer {
+    addr: 0x0000000001000000,
+    metadata: 910952,
+}
+INFO : virtual_address_offset: 0xffffffffffffffff0000018080000000
+INFO : Handling Segment: Ph64(ProgramHeader64 { type_: Ok(Load), flags: Flags(5), offset: 1000, virtual_addr: ffffffff80000000, physical_addr: ffffffff80000000, file_size: 6bac1, mem_size: 6bac1, align: 1000 })
+INFO : Handling Segment: Ph64(ProgramHeader64 { type_: Ok(Load), flags: Flags(4), offset: 6d000, virtual_addr: ffffffff8006c000, physical_addr: ffffffff8006c000, file_size: 62534, mem_size: 62534, align: 1000 })
+INFO : Handling Segment: Ph64(ProgramHeader64 { type_: Ok(Load), flags: Flags(6), offset: d0000, virtual_addr: ffffffff800cf000, physical_addr: ffffffff800cf000, file_size: 1f30, mem_size: 100f3d8, align: 1000 })
+INFO : Mapping bss section
+INFO : Handling Segment: Ph64(ProgramHeader64 { type_: Ok(Load), flags: Flags(6), offset: d0000, virtual_addr: ffffffff800cf000, physical_addr: ffffffff800cf000, file_size: e0, mem_size: e0, align: 1000 })
+ERROR: panicked at C:\Users\subli\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\bootloader-x86_64-common-0.11.17\src\lib.rs:209:6:
+no entry point: "map_to failed"

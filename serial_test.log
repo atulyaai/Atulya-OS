@@ -1,0 +1,44 @@
+INFO : Framebuffer info: FrameBufferInfo { byte_len: 2764800, width: 1280, height: 720, pixel_format: Bgr, bytes_per_pixel: 3, stride: 1280 }
+INFO : 4th Stage
+INFO : BiosInfo { stage_4: Region { start: 130000, len: 252c0 }, kernel: Region { start: 1000000, len: dc940 }, ramdisk: Region { start: 10dd000, len: 0 }, config_file: Region { start: 10dd000, len: d3 }, last_used_addr: 10dd0d2, framebuffer: BiosFramebufferInfo { region: Region { start: fd000000, len: 2a3000 }, width: 500, height: 2d0, bytes_per_pixel: 3, stride: 500, pixel_format: Bgr }, memory_map_addr: 12114, memory_map_len: 7 }
+INFO : BIOS boot
+INFO : Elf file loaded at Pointer {
+    addr: 0x0000000001000000,
+    metadata: 903488,
+}
+INFO : virtual_address_offset: 0x18000000000
+INFO : Handling Segment: Ph64(ProgramHeader64 { type_: Ok(Load), flags: Flags(4), offset: 0, virtual_addr: 0, physical_addr: 0, file_size: 627bc, mem_size: 627bc, align: 1000 })
+INFO : Handling Segment: Ph64(ProgramHeader64 { type_: Ok(Load), flags: Flags(5), offset: 627c0, virtual_addr: 637c0, physical_addr: 637c0, file_size: 6bac1, mem_size: 6bac1, align: 1000 })
+INFO : Handling Segment: Ph64(ProgramHeader64 { type_: Ok(Load), flags: Flags(6), offset: ce288, virtual_addr: d0288, physical_addr: d0288, file_size: 1bb0, mem_size: 1d78, align: 1000 })
+INFO : Mapping bss section
+INFO : Handling Segment: Ph64(ProgramHeader64 { type_: Ok(Load), flags: Flags(6), offset: cfe38, virtual_addr: d2e38, physical_addr: d2e38, file_size: 380, mem_size: 100d830, align: 1000 })
+INFO : Mapping bss section
+INFO : Entry point at: 0x180000c26b0
+INFO : Creating GDT at PhysAddr(0x2115000)
+INFO : Map framebuffer
+INFO : Map physical memory
+INFO : Allocate bootinfo
+INFO : Create Memory Map
+INFO : Create bootinfo
+INFO : Jumping to kernel entry point at VirtAddr(0x180000c26b0)
+ATULYAOS starting (BIOS long mode)...
+ATULYAOS framebuffer online.
+0x2524000
+0x1dabc000
+  allocator lock...
+  allocator lock acquired
+  allocator init done
+  allocator init complete
+Heap initialized
+GDT + TSS + Ring 3 Selectors initialized.
+Hardware SYSCALL / SYSRET subsystem online (Isolated Kernel Stack).
+ATA Primary Disk Initialized. Capacity: Active.
+About to init interrupts...
+SSE enabled.
+IDT + PIC + PIT + PS/2 Mouse initialized.
+Interrupts initialized.
+Timer calibrated (TSC vs PIT).
+About to init scheduler...
+Scheduler initialized.
+Atulya AI Intent Subsystem Initialized.
+AtulyaOS: Next-Gen Cyberpunk Boot Sequence starting.
