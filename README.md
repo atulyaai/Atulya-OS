@@ -62,12 +62,13 @@
 
 ---
 
-## 🖼️ Visual Storyboard & Architecture
+## 🖼️ Visual Storyboard & Live Boot Video
 
 <div align="center">
-
-![Atulya OS Storyboard](assets/images/boot_storyboard.png)
-
+  <img src="assets/images/boot_animation.gif" alt="Atulya OS Live Boot Sequence" width="100%"/>
+  <p><em>🎥 Live QEMU boot sequence: Limine handoff, x86_64 long mode, 1080p double-buffered TrueColor compositor & glass desktop init</em></p>
+  <br/>
+  <img src="assets/images/boot_storyboard.png" alt="Atulya OS Storyboard" width="100%"/>
 </div>
 
 ---
