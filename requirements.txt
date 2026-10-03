@@ -1,0 +1,5 @@
+# Atulya-OS Python build helpers
+# Install: pip install -r requirements.txt
+
+# Image creation and ISO tools (Python wrappers)
+pyelftools>=0.29
