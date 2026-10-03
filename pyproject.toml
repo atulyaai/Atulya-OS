@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "atulya-os-tools"
+version = "0.4.0"
+description = "Build tooling and helpers for Atulya-OS"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [{ name = "Atulya AI", email = "contact@atulvij.com" }]
+keywords = ["os", "kernel", "rust", "x86", "bare-metal", "osdev"]
+
+[project.urls]
+Homepage = "https://www.atulvij.com"
+Repository = "https://github.com/atulyaai/Atulya-OS"
