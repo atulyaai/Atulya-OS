@@ -1,20 +1,27 @@
 <div align="center">
+  <img src="assets/images/banner.png" alt="Atulya OS Banner" width="100%"/>
+</div>
 
-![Atulya OS Banner](assets/images/banner.png)
+<div align="center">
+  <h1>
+    <img src="https://readme-typing-svg.herokuapp.com?font=Cinzel&weight=700&size=40&duration=4000&pause=1000&color=F7931A&center=true&vCenter=true&width=700&height=75&lines=ATULYA+OS;NEXT-GEN+INTENT+OPERATING+SYSTEM;PURE+RUST+NO_STD+KERNEL;अतुल्य+ऑपरेटिंग+सिस्टम" alt="Atulya OS — The Next-Generation Intent Operating System" />
+  </h1>
+</div>
 
-# 🌌 ATULYA OS
-### *The Next-Generation Intent Operating System*
+<p align="center">
+  <em><strong>अतुल्य</strong> (Atulya) — Peerless &nbsp;·&nbsp; <strong>OS</strong> — Bare-metal intent computer in pure Rust</em><br/>
+  <strong>A freestanding, memory-safe, multi-layered x86_64 operating system built in pure Rust (<code>no_std</code>). Fuses macOS floating glass aesthetics, Linux command power, Windows window compositing, and an autonomous AI core.</strong>
+</p>
 
-[![Rust 2024](https://img.shields.io/badge/Rust-2024_Edition-orange?logo=rust&style=for-the-badge)](https://www.rust-lang.org/)
-[![Target](https://img.shields.io/badge/Target-x86__64_Freestanding-blue?style=for-the-badge)](https://github.com/atulyaai/Atulya-OS)
-[![Display](https://img.shields.io/badge/Display-1080p_TrueColor-00e5ff?style=for-the-badge)](https://github.com/atulyaai/Atulya-OS)
-[![License](https://img.shields.io/badge/License-MIT%2FApache-success?style=for-the-badge)](LICENSE)
-
-*A freestanding, memory-safe, multi-layered x86_64 operating system built in pure Rust (`no_std`). Fuses macOS floating glass aesthetics, Linux command power, Windows window compositing, and an autonomous AI core.*
+<p align="center">
+  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-2024_Edition-0d1117?style=for-the-badge&logo=rust&logoColor=orange&labelColor=0d1117&color=orange" alt="Rust 2024"/></a>
+  <a href="https://github.com/atulyaai/Atulya-OS"><img src="https://img.shields.io/badge/Target-x86__64_Freestanding-0d1117?style=for-the-badge&logoColor=4DFBFF&labelColor=0d1117&color=4DFBFF" alt="Target"/></a>
+  <a href="https://github.com/atulyaai/Atulya-OS"><img src="https://img.shields.io/badge/Display-1080p_TrueColor-0d1117?style=for-the-badge&logoColor=00e5ff&labelColor=0d1117&color=00e5ff" alt="Display"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-0d1117?style=for-the-badge&logoColor=brightgreen&labelColor=0d1117&color=brightgreen" alt="License"/></a>
+  <img src="https://img.shields.io/badge/Made_in-India_🇮🇳-0d1117?style=for-the-badge&logoColor=FF9933&labelColor=0d1117&color=FF9933" alt="Made in India"/>
+</p>
 
 ---
-
-</div>
 
 ## 📖 About Atulya OS
 
