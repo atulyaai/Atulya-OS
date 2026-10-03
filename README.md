@@ -17,7 +17,7 @@
   <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-2024_Edition-0d1117?style=for-the-badge&logo=rust&logoColor=orange&labelColor=0d1117&color=orange" alt="Rust 2024"/></a>
   <a href="https://github.com/atulyaai/Atulya-OS"><img src="https://img.shields.io/badge/Target-x86__64_Freestanding-0d1117?style=for-the-badge&logoColor=4DFBFF&labelColor=0d1117&color=4DFBFF" alt="Target"/></a>
   <a href="https://github.com/atulyaai/Atulya-OS"><img src="https://img.shields.io/badge/Display-1080p_TrueColor-0d1117?style=for-the-badge&logoColor=00e5ff&labelColor=0d1117&color=00e5ff" alt="Display"/></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-0d1117?style=for-the-badge&logoColor=brightgreen&labelColor=0d1117&color=brightgreen" alt="License"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-F7931A.svg?style=flat-square" alt="MIT License"/></a>
   <img src="https://img.shields.io/badge/Made_in-India_🇮🇳-0d1117?style=for-the-badge&logoColor=FF9933&labelColor=0d1117&color=FF9933" alt="Made in India"/>
 </p>
 
@@ -157,3 +157,9 @@ Atulya OS/
 **Built with ❤️ for Atulya AI** • *Crafted in pure Rust*
 
 </div>
+
+---
+
+## 📜 License
+
+MIT License. Copyright (c) 2026 Atulya AI (atulyaai). See [LICENSE](LICENSE).
