@@ -62,13 +62,11 @@
 
 ---
 
-## 🖼️ Visual Storyboard & Live Boot Video
+## 🖼️ Glass Desktop Compositor & Live OS Interface
 
 <div align="center">
-  <img src="assets/images/boot_animation.gif" alt="Atulya OS Live Boot Sequence" width="100%"/>
-  <p><em>🎥 Live QEMU boot sequence: Limine handoff, x86_64 long mode, 1080p double-buffered TrueColor compositor & glass desktop init</em></p>
-  <br/>
-  <img src="assets/images/boot_storyboard.png" alt="Atulya OS Storyboard" width="100%"/>
+  <img src="assets/images/atulya_os_compositor.png" alt="Atulya OS Glass Desktop Compositor & Terminal" width="100%"/>
+  <p><em>🌌 <strong>Atulya OS Desktop Workspace:</strong> 1080p double-buffered TrueColor compositor, native x86_64 <code>no_std</code> glass terminal, holographic AI intent orb HUD, and 9-app floating glass dock.</em></p>
 </div>
 
 ---
