@@ -62,14 +62,7 @@
 
 ---
 
-## 🖼️ Glass Desktop Compositor & Live OS Interface
 
-<div align="center">
-  <img src="assets/images/atulya_os_compositor.png" alt="Atulya OS Glass Desktop Compositor & Terminal" width="100%"/>
-  <p><em>🌌 <strong>Atulya OS Desktop Workspace:</strong> 1080p double-buffered TrueColor compositor, native x86_64 <code>no_std</code> glass terminal, holographic AI intent orb HUD, and 9-app floating glass dock.</em></p>
-</div>
-
----
 
 ## ⚡ Interactive Terminal Commands
 
